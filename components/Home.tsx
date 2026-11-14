@@ -81,7 +81,7 @@ export default function Home({ recent, archive, countries }: { recent: PostSumma
           </div>
           <div className="wm" aria-hidden="true">낡은 서랍속의 추억</div>
         </div>
-        <div className="legal"><span>© {SITE.name}</span><span>사진과 글의 저작권은 작성자에게 있습니다.</span></div>
+        <div className="legal"><span>© {SITE.name}</span><span>사진과 글의 저작권은 작성자에게 있습니다. · <a href="/admin">관리자</a></span></div>
       </footer>
     </div>
   );
