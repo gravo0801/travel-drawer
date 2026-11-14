@@ -24,7 +24,6 @@ export type Post = {
   naverUrl?: string | null;
   source?: "naver" | "editor";
   photoCount?: number;
-  sample?: boolean;
 };
 
 /** What the home page and archive need, without the full body. */

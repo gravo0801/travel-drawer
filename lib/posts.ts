@@ -25,15 +25,9 @@ export function getPosts(): PostSummary[] {
   return readAll().map(summarize).sort(byTripDesc);
 }
 
-/** Real posts plus placeholder entries, so the archive can be judged before the full migration. */
+/** 보관함에 올라온 글 전체(여행 날짜 최신순). */
 export function getArchive(): PostSummary[] {
-  const real = getPosts();
-  if (process.env.NEXT_PUBLIC_SHOW_SAMPLES === "false") return real;
-  const file = path.join(process.cwd(), "content", "samples.json");
-  const samples: PostSummary[] = fs.existsSync(file)
-    ? (JSON.parse(fs.readFileSync(file, "utf8")) as PostSummary[]).map((s) => ({ ...s, photoCount: s.photoCount ?? 0 }))
-    : [];
-  return [...real, ...samples].sort(byTripDesc);
+  return getPosts();
 }
 
 export function getPost(id: string): Post | null {

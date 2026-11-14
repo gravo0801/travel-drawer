@@ -19,7 +19,6 @@ npm run build
 | 위치 | 내용 |
 |---|---|
 | `content/posts/<글번호>/post.json` | 옮겨 온 글 (제목, 여행 날짜·나라·도시, 본문 블록, 해시태그) |
-| `content/samples.json` | 글 이전 전까지 보여 주는 가상 목록 (`NEXT_PUBLIC_SHOW_SAMPLES=false`로 끔) |
 | `public/media/posts/` | 글 사진 |
 | `public/media/site/` | 첫 화면·글 찾기·맨 아래 기본 그림 (`npm run gen:art`로 다시 생성) |
 | `scripts/import_naver_pdf.py` | 네이버 "PDF로 저장" 파일 → 글 데이터 변환 |

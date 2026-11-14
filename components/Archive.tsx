@@ -19,7 +19,6 @@ export default function Archive({ posts }: { posts: PostSummary[] }) {
   const [cs, setCs] = useState<string[]>([]);
   const [shut, setShut] = useState<Record<string, boolean>>({});
   const [cur, setCur] = useState("");
-  const [toast, setToast] = useState("");
   const [pv, setPv] = useState<{ p: PostSummary; x: number; y: number } | null>(null);
   const main = useRef<HTMLDivElement>(null);
 
@@ -44,7 +43,6 @@ export default function Archive({ posts }: { posts: PostSummary[] }) {
     const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) setCur(e.target.getAttribute("data-y") ?? ""); }), { rootMargin: "-170px 0px -65% 0px" });
     els.forEach((e) => io.observe(e)); return () => io.disconnect();
   }, [vis, shut]);
-  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(""), 2600); return () => clearTimeout(t); }, [toast]);
 
   const fine = typeof window !== "undefined" && matchMedia("(hover: hover) and (pointer: fine)").matches;
   const jump = (y: string) => {
@@ -56,9 +54,7 @@ export default function Archive({ posts }: { posts: PostSummary[] }) {
     <section id="archive" className="archive">
       <div className="a-bg"><SlotImage k="archive" /></div>
       <div className="a-in">
-        <div className="sec-h"><span className="eyebrow">Archive</span><h2>연도 · 나라 · 도시로 찾기</h2><p>제목만 훑어도 어느 해, 어느 나라, 어느 도시였는지 한눈에 보입니다.</p>
-          {posts.some((p) => p.sample) && <div className="note">흐리게 표시된 제목은 가상의 샘플입니다. 실제 849개 글을 옮기면 사라집니다.</div>}
-        </div>
+        <h2 className="sr-only">전체 글 목록</h2>
         <div className="panel">
           <div className="tool">
             <label className="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-4-4" /></svg>
@@ -101,9 +97,7 @@ export default function Archive({ posts }: { posts: PostSummary[] }) {
                                 <ul className="posts">{ct.a.map((p) => {
                                   const inner = <><span className="pd">{md(p)}</span><span className="pt">{p.title}</span><span className="pn">사진 {p.photoCount}</span></>;
                                   const hover = fine ? { onMouseEnter: (e: React.MouseEvent) => setPv({ p, x: e.clientX, y: e.clientY }), onMouseMove: (e: React.MouseEvent) => setPv({ p, x: e.clientX, y: e.clientY }), onMouseLeave: () => setPv(null) } : {};
-                                  return <li key={p.id}>{p.sample
-                                    ? <button type="button" className="row sample" onClick={() => setToast("가상의 샘플 제목입니다. 글 이전 뒤에 실제 글로 바뀝니다.")} {...hover}>{inner}</button>
-                                    : <Link className="row" href={`/posts/${p.id}`} {...hover}>{inner}</Link>}</li>;
+                                  return <li key={p.id}><Link className="row" href={`/posts/${p.id}`} {...hover}>{inner}</Link></li>;
                                 })}</ul>
                               </div>))}
                             </div>
@@ -124,7 +118,6 @@ export default function Archive({ posts }: { posts: PostSummary[] }) {
           <div className="im">{pv.p.cover ? <img src={pv.p.cover} alt="" /> : <span className="ph">{pv.p.trip.city}</span>}</div>
           <p><b>{yearOf(pv.p)} · {pv.p.trip.country} · {pv.p.trip.city}</b>{pv.p.title}</p>
         </div>); })()}
-      {toast && <div className="toast" role="status">{toast}</div>}
     </section>
   );
 }
