@@ -1,5 +1,6 @@
 export type SlotKey = "hero" | "archive" | "footer";
 export type Theme = "dark" | "light";
+export type Align = "center" | "left" | "right";
 
 export const SLOTS: Record<SlotKey, { name: string; ratio: number; ratioLabel: string; rec: string; min: [number, number]; tip: string }> = {
   hero: { name: "첫 화면 큰 사진", ratio: 16 / 9, ratioLabel: "16:9", rec: "2400 × 1350", min: [1920, 1080],

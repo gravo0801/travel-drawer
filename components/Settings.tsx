@@ -20,7 +20,7 @@ function verdict(k: SlotKey, w: number, h: number, custom: boolean) {
 
 export default function Settings() {
   const s = useSettings();
-  const [tab, setTab] = useState<"look" | "photo" | "font">("look");
+  const [tab, setTab] = useState<"look" | "text" | "photo" | "font">("look");
   const closeRef = useRef<HTMLButtonElement>(null);
   const opener = useRef<Element | null>(null);
 
@@ -38,7 +38,7 @@ export default function Settings() {
       <aside className={"drawer" + (s.open ? " on" : "")} role="dialog" aria-modal="true" aria-labelledby="dttl" aria-hidden={!s.open} inert={!s.open}>
         <div className="dh"><h2 id="dttl">설정</h2><button ref={closeRef} className="dx" type="button" aria-label="설정 닫기" onClick={() => s.setOpen(false)}>&times;</button></div>
         <div className="dtabs" role="group" aria-label="설정 종류">
-          {([["look", "화면 테마"], ["photo", "사진 바꾸기"], ["font", "글꼴"]] as const).map(([k, l]) => (
+          {([["look", "화면 테마"], ["text", "글 정렬"], ["photo", "사진 바꾸기"], ["font", "글꼴"]] as const).map(([k, l]) => (
             <button key={k} type="button" aria-pressed={tab === k} onClick={() => setTab(k)}>{l}</button>
           ))}
         </div>
@@ -55,6 +55,21 @@ export default function Settings() {
                   </label>
                 ))}
               </div>
+            </div>
+          )}
+          {tab === "text" && (
+            <div>
+              <p className="h">글 본문을 어느 쪽에 맞출지 고릅니다. 기본은 가운데 정렬이며, 사진 크기와 위치는 바뀌지 않습니다.</p>
+              <div className="aligns">
+                {([["center", "가운데 정렬", "기본"], ["left", "왼쪽 정렬", "일반적인 글 읽기"], ["right", "오른쪽 정렬", "시집·에세이 느낌"]] as const).map(([k, n, d]) => (
+                  <label key={k} className={"al al-" + k}>
+                    <input type="radio" name="align" checked={s.align === k} onChange={() => s.setAlign(k)} />
+                    <span className="apv" aria-hidden="true"><i /><i /><i /></span>
+                    <b>{n}</b><span>{d}</span>
+                  </label>
+                ))}
+              </div>
+              <p className="sample" data-sample="true">샘플 문장입니다. 지금 고른 정렬로 글이 이렇게 보입니다.</p>
             </div>
           )}
           {tab === "photo" && (

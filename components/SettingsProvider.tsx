@@ -1,10 +1,11 @@
 "use client";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { FONTS, defaultSlot, type SlotKey, type Theme } from "@/lib/site";
+import { FONTS, defaultSlot, type Align, type SlotKey, type Theme } from "@/lib/site";
 
 type SlotState = { url: string; w: number; h: number; fx: number; fy: number; custom: boolean };
 type Ctx = {
   theme: Theme; setTheme: (t: Theme) => void;
+  align: Align; setAlign: (a: Align) => void;
   fonts: { t: string; b: string }; setFonts: (f: { t: string; b: string }) => void;
   slot: (k: SlotKey) => SlotState;
   setSlotFile: (k: SlotKey, f: File) => Promise<void>;
@@ -31,6 +32,7 @@ function save(k: string, v: unknown) { try { localStorage.setItem(k, JSON.string
 
 export default function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeS] = useState<Theme>("dark");
+  const [align, setAlignS] = useState<Align>("center");
   const [fonts, setFontsS] = useState({ t: "pre", b: "pre" });
   const [custom, setCustom] = useState<Partial<Record<SlotKey, { url: string; w: number; h: number }>>>({});
   const [focus, setFocusS] = useState<Partial<Record<SlotKey, [number, number]>>>({});
@@ -38,7 +40,7 @@ export default function SettingsProvider({ children }: { children: React.ReactNo
 
   useEffect(() => {
     const t = document.documentElement.dataset.theme === "light" ? "light" : "dark";
-    setThemeS(t); setFontsS(load("td-fonts", { t: "pre", b: "pre" })); setFocusS(load("td-focus", {}));
+    setThemeS(t); setAlignS(load<Align>("td-align", "center")); setFontsS(load("td-fonts", { t: "pre", b: "pre" })); setFocusS(load("td-focus", {}));
     KEYS.forEach(async (k) => {
       try {
         const rec = await idbGet<{ blob: Blob; w: number; h: number }>(k);
@@ -51,6 +53,7 @@ export default function SettingsProvider({ children }: { children: React.ReactNo
   }, [fonts]);
 
   const setTheme = useCallback((t: Theme) => { setThemeS(t); document.documentElement.dataset.theme = t; save("td-theme", t); }, []);
+  const setAlign = useCallback((a: Align) => { setAlignS(a); document.documentElement.dataset.align = a; save("td-align", a); }, []);
   const setFonts = useCallback((f: { t: string; b: string }) => { setFontsS(f); save("td-fonts", f); }, []);
   const setFocus = useCallback((k: SlotKey, fx: number, fy: number) => { setFocusS((s) => { const n = { ...s, [k]: [fx, fy] as [number, number] }; save("td-focus", n); return n; }); }, []);
   const setSlotFile = useCallback(async (k: SlotKey, f: File) => {
@@ -65,7 +68,7 @@ export default function SettingsProvider({ children }: { children: React.ReactNo
     return c ? { ...c, fx: f[0], fy: f[1], custom: true } : { url: defaultSlot(k, theme), w: 2400, h: k === "archive" ? 1600 : 1350, fx: f[0], fy: f[1], custom: false };
   }, [custom, focus, theme]);
 
-  const v = useMemo(() => ({ theme, setTheme, fonts, setFonts, slot, setSlotFile, setFocus, resetSlot, open, setOpen }), [theme, setTheme, fonts, setFonts, slot, setSlotFile, setFocus, resetSlot, open]);
+  const v = useMemo(() => ({ theme, setTheme, align, setAlign, fonts, setFonts, slot, setSlotFile, setFocus, resetSlot, open, setOpen }), [theme, setTheme, align, setAlign, fonts, setFonts, slot, setSlotFile, setFocus, resetSlot, open]);
   return <C.Provider value={v}>{children}</C.Provider>;
 }
 

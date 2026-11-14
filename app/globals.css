@@ -203,7 +203,9 @@ button,input{font:inherit;color:inherit}
 .p-meta{margin:0;font:400 14px var(--ui);color:#d9d4ca}
 .p-body{max-width:860px;margin:0 auto;padding:56px clamp(20px,5vw,40px) 0}
 .p-text{margin:28px auto;max-width:680px;font:400 17px/1.95 var(--bf)}
-.p-text p{margin:0 0 1em;word-break:keep-all}
+.p-text p{margin:0 0 1em;word-break:keep-all;text-align:center}
+[data-align="left"] .p-text p{text-align:left}
+[data-align="right"] .p-text p{text-align:right}
 /* 사진은 본문 글 폭보다 넓게 펼친다. 원본 해상도가 올라가면 --ph-max 만 키우면 된다. */
 .p-body{--ph-max:1040px}
 .p-photo{margin:36px 0;position:relative;left:50%;width:min(var(--ph-max),calc(100vw - 32px));transform:translateX(-50%)}
@@ -238,7 +240,7 @@ button,input{font:inherit;color:inherit}
 .dx{width:44px;height:44px;border:0;background:transparent;font-size:26px;cursor:pointer;border-radius:22px}
 .dx:hover{background:var(--hover)}
 .dtabs{display:flex;gap:6px;padding:12px 18px 0}
-.dtabs button{flex:1;min-height:42px;border:1px solid var(--line);background:transparent;border-radius:21px;font:500 14px var(--ui);cursor:pointer}
+.dtabs button{flex:1;min-height:42px;padding:0 6px;border:1px solid var(--line);background:transparent;border-radius:21px;font:500 13px var(--ui);cursor:pointer;white-space:nowrap}
 .dtabs button[aria-pressed="true"]{background:var(--acc);border-color:var(--acc);color:var(--acc-ink)}
 .db{flex:1;overflow:auto;padding:14px 18px 30px}
 .db h3{margin:22px 0 4px;font:600 15px var(--ui)}
@@ -299,4 +301,18 @@ button,input{font:inherit;color:inherit}
 .admin-card .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
 .admin-card .err{color:#e57373}
 .admin-card .uid{display:block;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--bg);font:500 13px/1.5 ui-monospace,monospace;word-break:break-all}
+
+.aligns{display:grid;gap:10px;margin-top:14px}
+.al{display:grid;grid-template-columns:64px 1fr;grid-template-rows:auto auto;column-gap:14px;align-items:center;padding:12px 14px;border:1px solid var(--line);border-radius:14px;cursor:pointer}
+.al input{position:absolute;opacity:0;pointer-events:none}
+.al:has(input:checked){border-color:var(--acc);background:var(--bg2)}
+.al:has(input:focus-visible){outline:2px solid var(--acc);outline-offset:2px}
+.al .apv{grid-row:1/3;display:flex;flex-direction:column;gap:5px;padding:8px;border-radius:8px;background:var(--bg)}
+.al .apv i{display:block;height:4px;border-radius:2px;background:var(--mute);opacity:.7}
+.al-center .apv{align-items:center}.al-center .apv i:nth-child(1){width:90%}.al-center .apv i:nth-child(2){width:70%}.al-center .apv i:nth-child(3){width:50%}
+.al-left .apv{align-items:flex-start}.al-left .apv i:nth-child(1){width:90%}.al-left .apv i:nth-child(2){width:70%}.al-left .apv i:nth-child(3){width:50%}
+.al-right .apv{align-items:flex-end}.al-right .apv i:nth-child(1){width:90%}.al-right .apv i:nth-child(2){width:70%}.al-right .apv i:nth-child(3){width:50%}
+.al b{font:600 15px var(--ui)}.al>span:last-child{font:400 12.5px var(--ui);color:var(--mute)}
+.sample{margin:18px 0 0;padding:16px;border:1px dashed var(--line);border-radius:12px;font:400 15px/1.8 var(--bf);text-align:center}
+[data-align="left"] .sample{text-align:left}[data-align="right"] .sample{text-align:right}
 @media (prefers-reduced-motion:reduce){*,*:before,*:after{transition:none!important;animation:none!important}}

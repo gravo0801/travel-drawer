@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = { themeColor: "#0c0e13" };
 
 // Sets theme and fonts before first paint so there is no flash.
-const boot = `try{var t=localStorage.getItem('td-theme');document.documentElement.dataset.theme=t?JSON.parse(t):'dark';}catch(e){document.documentElement.dataset.theme='dark'}`;
+const boot = `try{var t=localStorage.getItem('td-theme');document.documentElement.dataset.theme=t?JSON.parse(t):'dark';}catch(e){document.documentElement.dataset.theme='dark'}try{var a=localStorage.getItem('td-align');document.documentElement.dataset.align=a?JSON.parse(a):'center';}catch(e){document.documentElement.dataset.align='center'}`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
