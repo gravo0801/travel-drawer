@@ -204,9 +204,12 @@ button,input{font:inherit;color:inherit}
 .p-body{max-width:860px;margin:0 auto;padding:56px clamp(20px,5vw,40px) 0}
 .p-text{margin:28px auto;max-width:680px;font:400 17px/1.95 var(--bf)}
 .p-text p{margin:0 0 1em;word-break:keep-all}
-.p-photo{margin:28px auto}
-.p-photo img{width:100%;height:auto;border-radius:10px}
-.p-photo.tall{max-width:560px}
+/* 사진은 본문 글 폭보다 넓게 펼친다. 원본 해상도가 올라가면 --ph-max 만 키우면 된다. */
+.p-body{--ph-max:1040px}
+.p-photo{margin:36px 0;position:relative;left:50%;width:min(var(--ph-max),calc(100vw - 32px));transform:translateX(-50%)}
+.p-photo img{width:100%;height:auto;border-radius:10px;display:block}
+.p-photo.tall{width:min(calc(var(--ph-max) * .66),calc(100vw - 32px))}
+.p-photo.tall img{width:auto;max-width:100%;max-height:88vh;margin:0 auto}
 .p-photo figcaption{margin-top:8px;text-align:center;font:400 13px var(--ui);color:var(--mute)}
 .p-gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;margin:28px 0}
 .p-gallery img{width:100%;height:100%;object-fit:cover;border-radius:8px}
