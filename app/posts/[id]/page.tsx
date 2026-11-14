@@ -44,13 +44,13 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
             if (b.type === "photo") return (
               <figure className={"p-photo" + (b.h > b.w ? " tall" : "")} key={k}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={b.src} alt={b.caption ?? ""} width={b.w} height={b.h} loading={k < 4 ? "eager" : "lazy"} />
+                <img src={b.src} alt={b.caption ?? `${post.title} — 사진 ${k + 1}`} width={b.w} height={b.h} loading={k < 4 ? "eager" : "lazy"} />
                 {b.caption && <figcaption>{b.caption}</figcaption>}
               </figure>);
             return (
               <div className="p-gallery" key={k}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                {b.photos.map((ph, j) => <img key={j} src={ph.src} alt={ph.caption ?? ""} width={ph.w} height={ph.h} loading="lazy" />)}
+                {b.photos.map((ph, j) => <img key={j} src={ph.src} alt={ph.caption ?? `${post.title} — 사진 ${j + 1}`} width={ph.w} height={ph.h} loading="lazy" />)}
               </div>);
           })}
           {!!post.hashtags?.length && <ul className="p-tags" aria-label="해시태그">{post.hashtags.map((t) => <li key={t}>#{t}</li>)}</ul>}
