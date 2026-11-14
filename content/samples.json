@@ -1,0 +1,482 @@
+[
+ {
+  "id": "sample-00",
+  "title": "후쿠오카 마지막날 - 나카스 포장마차와 귀국",
+  "publishedAt": "2026-10-15",
+  "trip": {
+   "date": "2026-10-15",
+   "country": "일본",
+   "city": "후쿠오카"
+  },
+  "photoCount": 39,
+  "sample": true
+ },
+ {
+  "id": "sample-01",
+  "title": "후쿠오카 2일차 - 다자이후 텐만구와 우메가에 모치",
+  "publishedAt": "2026-10-13",
+  "trip": {
+   "date": "2026-10-13",
+   "country": "일본",
+   "city": "후쿠오카"
+  },
+  "photoCount": 74,
+  "sample": true
+ },
+ {
+  "id": "sample-02",
+  "title": "후쿠오카 가족여행 1일차 - 하카타역 도착, 모츠나베 저녁",
+  "publishedAt": "2026-10-12",
+  "trip": {
+   "date": "2026-10-12",
+   "country": "일본",
+   "city": "후쿠오카"
+  },
+  "photoCount": 58,
+  "sample": true
+ },
+ {
+  "id": "sample-03",
+  "title": "방콕 3일차 - 짜뚜짝 시장과 카오산로드 야경",
+  "publishedAt": "2026-01-25",
+  "trip": {
+   "date": "2026-01-25",
+   "country": "태국",
+   "city": "방콕"
+  },
+  "photoCount": 81,
+  "sample": true
+ },
+ {
+  "id": "sample-04",
+  "title": "방콕 1일차 - 수완나품 공항 도착, 짜오프라야 강변 호텔",
+  "publishedAt": "2026-01-22",
+  "trip": {
+   "date": "2026-01-22",
+   "country": "태국",
+   "city": "방콕"
+  },
+  "photoCount": 66,
+  "sample": true
+ },
+ {
+  "id": "sample-05",
+  "title": "강릉 1박2일 - 안목해변 커피거리와 초당순두부",
+  "publishedAt": "2025-09-06",
+  "trip": {
+   "date": "2025-09-06",
+   "country": "한국",
+   "city": "강릉"
+  },
+  "photoCount": 44,
+  "sample": true
+ },
+ {
+  "id": "sample-06",
+  "title": "이탈리아 5일차 - 메스트레 숙소에서 베네치아 본섬 당일치기",
+  "publishedAt": "2025-05-28",
+  "trip": {
+   "date": "2025-05-28",
+   "country": "이탈리아",
+   "city": "베네치아"
+  },
+  "photoCount": 96,
+  "sample": true
+ },
+ {
+  "id": "sample-07",
+  "title": "이탈리아 4일차 - 우피치 미술관과 두오모 쿠폴라",
+  "publishedAt": "2025-05-26",
+  "trip": {
+   "date": "2025-05-26",
+   "country": "이탈리아",
+   "city": "피렌체"
+  },
+  "photoCount": 88,
+  "sample": true
+ },
+ {
+  "id": "sample-08",
+  "title": "이탈리아 2일차 - 콜로세움, 포로 로마노 오전 투어",
+  "publishedAt": "2025-05-23",
+  "trip": {
+   "date": "2025-05-23",
+   "country": "이탈리아",
+   "city": "로마"
+  },
+  "photoCount": 102,
+  "sample": true
+ },
+ {
+  "id": "sample-09",
+  "title": "이탈리아 1일차 - 인천 출발, 피우미치노 공항 도착",
+  "publishedAt": "2025-05-22",
+  "trip": {
+   "date": "2025-05-22",
+   "country": "이탈리아",
+   "city": "로마"
+  },
+  "photoCount": 41,
+  "sample": true
+ },
+ {
+  "id": "sample-10",
+  "title": "교토 단풍 여행 - 에이칸도와 난젠지",
+  "publishedAt": "2024-11-09",
+  "trip": {
+   "date": "2024-11-09",
+   "country": "일본",
+   "city": "교토"
+  },
+  "photoCount": 63,
+  "sample": true
+ },
+ {
+  "id": "sample-11",
+  "title": "오사카 먹방 1일차 - 도톤보리, 타코야키 투어",
+  "publishedAt": "2024-11-08",
+  "trip": {
+   "date": "2024-11-08",
+   "country": "일본",
+   "city": "오사카"
+  },
+  "photoCount": 57,
+  "sample": true
+ },
+ {
+  "id": "sample-12",
+  "title": "다낭 가족 휴양 - 바나힐과 미케비치",
+  "publishedAt": "2024-08-17",
+  "trip": {
+   "date": "2024-08-17",
+   "country": "베트남",
+   "city": "다낭"
+  },
+  "photoCount": 70,
+  "sample": true
+ },
+ {
+  "id": "sample-13",
+  "title": "제주 벚꽃 드라이브 - 녹산로 유채꽃길",
+  "publishedAt": "2024-04-06",
+  "trip": {
+   "date": "2024-04-06",
+   "country": "한국",
+   "city": "제주"
+  },
+  "photoCount": 48,
+  "sample": true
+ },
+ {
+  "id": "sample-14",
+  "title": "인터라켄 2일차 - 융프라우요흐 열차",
+  "publishedAt": "2023-12-30",
+  "trip": {
+   "date": "2023-12-30",
+   "country": "스위스",
+   "city": "인터라켄"
+  },
+  "photoCount": 92,
+  "sample": true
+ },
+ {
+  "id": "sample-15",
+  "title": "루체른 1일차 - 카펠교와 호수 산책",
+  "publishedAt": "2023-12-28",
+  "trip": {
+   "date": "2023-12-28",
+   "country": "스위스",
+   "city": "루체른"
+  },
+  "photoCount": 61,
+  "sample": true
+ },
+ {
+  "id": "sample-16",
+  "title": "뮌헨 크리스마스 마켓 - 마리엔플라츠",
+  "publishedAt": "2023-12-26",
+  "trip": {
+   "date": "2023-12-26",
+   "country": "독일",
+   "city": "뮌헨"
+  },
+  "photoCount": 55,
+  "sample": true
+ },
+ {
+  "id": "sample-17",
+  "title": "시드니 2일차 - 오페라하우스와 본다이 비치",
+  "publishedAt": "2023-06-18",
+  "trip": {
+   "date": "2023-06-18",
+   "country": "호주",
+   "city": "시드니"
+  },
+  "photoCount": 84,
+  "sample": true
+ },
+ {
+  "id": "sample-18",
+  "title": "시드니 1일차 - 하버브리지 야경",
+  "publishedAt": "2023-06-16",
+  "trip": {
+   "date": "2023-06-16",
+   "country": "호주",
+   "city": "시드니"
+  },
+  "photoCount": 59,
+  "sample": true
+ },
+ {
+  "id": "sample-19",
+  "title": "부산 가을 여행 - 감천문화마을과 자갈치",
+  "publishedAt": "2022-10-09",
+  "trip": {
+   "date": "2022-10-09",
+   "country": "한국",
+   "city": "부산"
+  },
+  "photoCount": 52,
+  "sample": true
+ },
+ {
+  "id": "sample-20",
+  "title": "제주 한달살이 3주차 - 오름 트레킹",
+  "publishedAt": "2022-04-23",
+  "trip": {
+   "date": "2022-04-23",
+   "country": "한국",
+   "city": "제주"
+  },
+  "photoCount": 77,
+  "sample": true
+ },
+ {
+  "id": "sample-21",
+  "title": "파리 4일차 - 오르세 미술관과 센강 크루즈",
+  "publishedAt": "2019-11-03",
+  "trip": {
+   "date": "2019-11-03",
+   "country": "프랑스",
+   "city": "파리"
+  },
+  "photoCount": 91,
+  "sample": true
+ },
+ {
+  "id": "sample-22",
+  "title": "파리 2일차 - 루브르, 튈르리 정원",
+  "publishedAt": "2019-11-01",
+  "trip": {
+   "date": "2019-11-01",
+   "country": "프랑스",
+   "city": "파리"
+  },
+  "photoCount": 85,
+  "sample": true
+ },
+ {
+  "id": "sample-23",
+  "title": "런던 마지막날 - 대영박물관과 피시앤칩스",
+  "publishedAt": "2019-10-30",
+  "trip": {
+   "date": "2019-10-30",
+   "country": "영국",
+   "city": "런던"
+  },
+  "photoCount": 66,
+  "sample": true
+ },
+ {
+  "id": "sample-24",
+  "title": "런던 1일차 - 히드로에서 템즈강까지",
+  "publishedAt": "2019-10-27",
+  "trip": {
+   "date": "2019-10-27",
+   "country": "영국",
+   "city": "런던"
+  },
+  "photoCount": 49,
+  "sample": true
+ },
+ {
+  "id": "sample-25",
+  "title": "도쿄 3일차 - 츠키지 시장 스시 아침",
+  "publishedAt": "2018-08-12",
+  "trip": {
+   "date": "2018-08-12",
+   "country": "일본",
+   "city": "도쿄"
+  },
+  "photoCount": 72,
+  "sample": true
+ },
+ {
+  "id": "sample-26",
+  "title": "도쿄 1일차 - 시부야 스크램블과 라멘",
+  "publishedAt": "2018-08-10",
+  "trip": {
+   "date": "2018-08-10",
+   "country": "일본",
+   "city": "도쿄"
+  },
+  "photoCount": 54,
+  "sample": true
+ },
+ {
+  "id": "sample-27",
+  "title": "바르셀로나 2일차 - 사그라다 파밀리아",
+  "publishedAt": "2017-05-05",
+  "trip": {
+   "date": "2017-05-05",
+   "country": "스페인",
+   "city": "바르셀로나"
+  },
+  "photoCount": 80,
+  "sample": true
+ },
+ {
+  "id": "sample-28",
+  "title": "바르셀로나 1일차 - 람블라스 거리, 보케리아 시장",
+  "publishedAt": "2017-05-03",
+  "trip": {
+   "date": "2017-05-03",
+   "country": "스페인",
+   "city": "바르셀로나"
+  },
+  "photoCount": 62,
+  "sample": true
+ },
+ {
+  "id": "sample-29",
+  "title": "뉴욕 3일차 - 센트럴파크와 메트로폴리탄",
+  "publishedAt": "2016-07-21",
+  "trip": {
+   "date": "2016-07-21",
+   "country": "미국",
+   "city": "뉴욕"
+  },
+  "photoCount": 94,
+  "sample": true
+ },
+ {
+  "id": "sample-30",
+  "title": "뉴욕 1일차 - 타임스스퀘어 도착",
+  "publishedAt": "2016-07-19",
+  "trip": {
+   "date": "2016-07-19",
+   "country": "미국",
+   "city": "뉴욕"
+  },
+  "photoCount": 58,
+  "sample": true
+ },
+ {
+  "id": "sample-31",
+  "title": "타이베이 야시장 투어 - 스린과 라오허",
+  "publishedAt": "2015-02-14",
+  "trip": {
+   "date": "2015-02-14",
+   "country": "대만",
+   "city": "타이베이"
+  },
+  "photoCount": 68,
+  "sample": true
+ },
+ {
+  "id": "sample-32",
+  "title": "타이베이 1일차 - 융캉제 우육면",
+  "publishedAt": "2015-02-13",
+  "trip": {
+   "date": "2015-02-13",
+   "country": "대만",
+   "city": "타이베이"
+  },
+  "photoCount": 40,
+  "sample": true
+ },
+ {
+  "id": "sample-33",
+  "title": "오사카 유니버설 스튜디오 하루",
+  "publishedAt": "2013-09-22",
+  "trip": {
+   "date": "2013-09-22",
+   "country": "일본",
+   "city": "오사카"
+  },
+  "photoCount": 50,
+  "sample": true
+ },
+ {
+  "id": "sample-34",
+  "title": "제주 올레길 7코스 걷기",
+  "publishedAt": "2012-04-08",
+  "trip": {
+   "date": "2012-04-08",
+   "country": "한국",
+   "city": "제주"
+  },
+  "photoCount": 43,
+  "sample": true
+ },
+ {
+  "id": "sample-35",
+  "title": "교토 첫 여행 - 기요미즈데라",
+  "publishedAt": "2010-10-16",
+  "trip": {
+   "date": "2010-10-16",
+   "country": "일본",
+   "city": "교토"
+  },
+  "photoCount": 46,
+  "sample": true
+ },
+ {
+  "id": "sample-36",
+  "title": "강릉 경포대 해돋이",
+  "publishedAt": "2009-06-27",
+  "trip": {
+   "date": "2009-06-27",
+   "country": "한국",
+   "city": "강릉"
+  },
+  "photoCount": 35,
+  "sample": true
+ },
+ {
+  "id": "sample-37",
+  "title": "도쿄 첫 자유여행 - 아사쿠사",
+  "publishedAt": "2008-08-02",
+  "trip": {
+   "date": "2008-08-02",
+   "country": "일본",
+   "city": "도쿄"
+  },
+  "photoCount": 51,
+  "sample": true
+ },
+ {
+  "id": "sample-38",
+  "title": "베이징 자금성과 천안문",
+  "publishedAt": "2007-05-12",
+  "trip": {
+   "date": "2007-05-12",
+   "country": "중국",
+   "city": "베이징"
+  },
+  "photoCount": 60,
+  "sample": true
+ },
+ {
+  "id": "sample-39",
+  "title": "설악산 단풍 산행",
+  "publishedAt": "2006-10-21",
+  "trip": {
+   "date": "2006-10-21",
+   "country": "한국",
+   "city": "설악산"
+  },
+  "photoCount": 38,
+  "sample": true
+ }
+]

@@ -1,0 +1,27 @@
+{
+  "name": "travel-drawer",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "tsc --noEmit",
+    "gen:art": "node scripts/paint-defaults.mjs",
+    "import:pdf": "python3 -I scripts/import_naver_pdf.py"
+  },
+  "dependencies": {
+    "firebase": "13.3.0",
+    "gsap": "3.15.1",
+    "next": "16.4.6",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "sharp": "0.35.5",
+    "typescript": "^5"
+  }
+}
