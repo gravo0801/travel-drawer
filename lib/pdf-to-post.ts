@@ -120,3 +120,18 @@ export function pdfToPost(manuscript: string, hints: { postedAt?: string; hashta
   if (!td) warnings.push("제목에 여행 날짜가 없어 작성일 기준으로 넣었습니다. 맞는지 확인해 주세요.");
   return { title, category, date, country, city, series, hashtags: hints.hashtags, blocks, warnings };
 }
+
+/** 붙여넣기 등에서: 제목·해시태그·본문으로 여행 날짜·나라·도시·묶음을 추정 */
+export function guessTrip(title: string, hashtags: string[], texts: string[]) {
+  const td = title.match(/(\d{4})[./-](\d{1,2})(?:[./-](\d{1,2}))?/);
+  const p2 = (x: string) => x.padStart(2, "0");
+  const date = td ? [td[1], p2(td[2]), td[3] && p2(td[3])].filter(Boolean).join("-") : "";
+  let { city, country } = findPlace([title, ...hashtags]);
+  if (!city) {
+    const b = findPlace(texts);
+    if (b.city && (!country || b.country === country)) ({ city, country } = b);
+    else if (!country) country = b.country;
+  }
+  const series = date && city ? `${date.slice(0, 4)}.${date.slice(5, 7)} ${city}` : "";
+  return { date, country, city, series };
+}
