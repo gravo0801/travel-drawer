@@ -1,9 +1,9 @@
 import Home from "@/components/Home";
 import SiteNav from "@/components/SiteNav";
-import { getArchive, getPosts } from "@/lib/posts";
+import { getArchive, getRecentlyAdded } from "@/lib/posts";
 
 export default function Page() {
-  const recent = getPosts().slice(0, 4);
+  const recent = getRecentlyAdded(4);
   const archive = getArchive();
   const countries = [...new Set(archive.map((p) => p.trip.country))];
   return (

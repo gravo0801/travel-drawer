@@ -23,6 +23,10 @@ export type Post = {
   blocks?: Block[];
   naverUrl?: string | null;
   source?: "naver" | "editor" | "pdf";
+  /** 이 블로그에 처음 올린 시각 (ISO). "최근 올린 글" 순서에 씀 */
+  addedAt?: string;
+  /** 마지막으로 고친 시각 (ISO) */
+  updatedAt?: string;
   /** 글 목록에 보일 요약 (PDF 가져오기 때 AI가 작성) */
   summary?: string;
   /** 글에 나온 방문 장소, 등장 순서 (동선 기능용) */

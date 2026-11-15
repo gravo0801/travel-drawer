@@ -26,7 +26,7 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
   return (
     <>
       <SiteNav solid />
-      <article className="post">
+      <article className="post" data-stamp={post.updatedAt ?? post.addedAt ?? ""}>
         <EditPostButton id={post.id} />
         <PostView post={post} />
         <nav className="p-nav" aria-label="다른 글">

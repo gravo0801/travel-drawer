@@ -18,6 +18,9 @@ export async function POST(req: Request) {
   const conflicts: string[] = [];
   for (const { post, photos, overwrite } of items) {
     if (!/^[\w-]+$/.test(post.id)) return json(400, `글 번호가 올바르지 않습니다: ${post.id}`);
+    const now = new Date().toISOString();
+    post.addedAt = post.addedAt || now; // 수정이면 처음 올린 시각 유지
+    if (overwrite) post.updatedAt = now;
     post.trip = { date: post.trip?.date ?? "", country: post.trip?.country ?? "", city: post.trip?.city ?? "" }; // 비워 둔 칸은 빈칸으로 저장
     if (!overwrite && (await postExists(post.id))) { conflicts.push(post.id); continue; }
     for (const ph of photos) {
@@ -37,6 +40,6 @@ export async function POST(req: Request) {
     const titles = items.map((i) => i.post.title);
     const msg = items.length === 1 ? `글 게시: ${titles[0]}` : `글 ${items.length}편 게시\n\n${titles.map((t) => "- " + t).join("\n")}`;
     const sha = await commitFiles(files, msg);
-    return Response.json({ ok: true, commit: sha, ids: items.map((i) => i.post.id) });
+    return Response.json({ ok: true, commit: sha, ids: items.map((i) => i.post.id), stamps: Object.fromEntries(items.map((i) => [i.post.id, i.post.updatedAt ?? i.post.addedAt])) });
   } catch (e) { return json(502, (e as Error).message); }
 }
