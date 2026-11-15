@@ -391,3 +391,23 @@ button,input{font:inherit;color:inherit}
 .paste-box textarea::placeholder{color:var(--ink);opacity:.85}
 .paste-box textarea:focus{outline:none;background:var(--bg);border-style:solid}
 .paste-box textarea:disabled{cursor:progress}
+.p-text .p-ta{display:block;width:100%;max-width:none;margin:0;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:transparent;color:var(--ink);font:400 17px/1.95 var(--bf);text-align:center;resize:vertical;field-sizing:content;min-height:4.5em}
+[data-align="left"] .p-text .p-ta{text-align:left}
+.p-text .p-ta:focus{outline:none;border-color:var(--acc);background:var(--bg)}
+.url-row{display:flex;gap:8px;margin-bottom:10px}
+.url-row input{flex:1;min-width:0;height:44px;padding:0 14px;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink);font:400 14px var(--ui)}
+.url-row input:focus{outline:none;border-color:var(--acc)}
+.url-row .btn{min-height:44px;padding:0 18px;font-size:14px;white-space:nowrap}
+.setup{padding:14px;border:1px solid #e57373;border-radius:14px;background:rgba(229,115,115,.08);font:400 13px/1.6 var(--ui);display:grid;gap:8px}
+.setup b{font-weight:600}
+.setup ol{margin:0;padding-left:18px;display:grid;gap:8px}
+.setup code{font:500 12px ui-monospace,monospace;background:var(--bg);padding:1px 5px;border-radius:5px;word-break:break-all}
+.setup a{color:var(--acc);text-decoration:underline}
+.setup small{color:var(--mute)}
+.uidrow{display:flex;gap:6px;align-items:center;margin-top:4px}
+.uidrow button{flex:0 0 auto;padding:3px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:400 12px var(--ui);cursor:pointer}
+.imp-empty.start{gap:18px;color:var(--ink)}
+.imp-empty .big{margin:0;font:600 clamp(28px,4vw,44px)/1.2 var(--ui)}
+.imp-empty ol{margin:0;padding-left:20px;text-align:left;display:grid;gap:8px;font:400 15px/1.7 var(--ui)}
+.imp-empty .muted{color:var(--mute);font-size:13.5px}
+kbd{display:inline-block;padding:1px 8px;border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;background:var(--bg2);font:500 .85em var(--ui)}

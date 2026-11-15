@@ -5,7 +5,7 @@ import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, type 
 import { firebaseApp } from "@/lib/firebase";
 import { extractPdf } from "@/lib/pdf-extract";
 import { pdfToPost, guessTrip } from "@/lib/pdf-to-post";
-import { parsePaste } from "@/lib/paste-to-blocks";
+import { parsePaste, parseHtml, hasImages, naverPostId, type Pasted } from "@/lib/paste-to-blocks";
 import type { Block, Post } from "@/lib/types";
 import PostView from "./PostView";
 
@@ -96,6 +96,10 @@ export default function PdfImporter() {
   const [msg, setMsg] = useState<{ ok: boolean; text: string; links?: { id: string; title: string }[] } | null>(null);
   const [editing, setEditing] = useState<number | null>(null);
   const [pasting, setPasting] = useState("");
+  const [naverUrl, setNaverUrl] = useState("");
+  const [cfg, setCfg] = useState<{ firebase: boolean; adminUids: boolean; githubToken: boolean } | null>(null);
+  const [uidCopied, setUidCopied] = useState(false);
+  useEffect(() => { fetch("/api/admin/status").then((r) => r.json()).then(setCfg).catch(() => {}); }, []);
   const busy = useRef(false);
   const fileIn = useRef<HTMLInputElement>(null);
   const replaceIn = useRef<HTMLInputElement>(null);
@@ -132,13 +136,14 @@ export default function PdfImporter() {
     setMsg(null);
   }
 
-  function newPost() {
+  function newPost(): string {
     const id = crypto.randomUUID();
     setDrafts((ds) => [...ds, {
       id, kind: "new", status: "ready", step: "", warnings: [], photos: {}, blocks: [{ type: "text", text: "" }], selected: true, overwrite: false,
       meta: { postId: `p${Date.now().toString(36)}`, title: "", date: "", country: "", city: "", series: "", category: "", hashtags: "", summary: "", places: [], publishedAt: today() },
     }]);
     setCur(id); setEditing(0); setMsg(null);
+    return id;
   }
 
   /** 붙여넣기: 네이버 글 수정 화면에서 복사한 글·사진을 순서대로 넣음 */
@@ -155,10 +160,30 @@ export default function PdfImporter() {
     return r.blob();
   }
 
-  async function onPasteContent(dt: DataTransfer) {
-    if (!d) return;
-    const id = d.id;
-    const { title, parts } = parsePaste(dt);
+  /** 붙여넣기 하나로 끝: 새 글이 없으면 만들고, 네이버 글 주소면 글·사진을 통째로 가져옴 */
+  async function onPasteContent(dt: DataTransfer, at?: number) {
+    const target = d && d.kind === "new" && d.status === "ready" ? d.id : newPost();
+    const plain = dt.getData("text/plain").trim();
+    if (!hasImages(dt) && plain.length < 400 && naverPostId(plain) && !/\s/.test(plain)) { await importUrl(plain, target); return; }
+    await importParsed(parsePaste(dt), at, undefined, target);
+  }
+
+  /** 네이버 글 주소로 글·사진 통째로 가져오기 */
+  async function importUrl(url = naverUrl, target?: string) {
+    const ids = naverPostId(url);
+    if (!ids) { setMsg({ ok: false, text: "네이버 블로그 글 주소를 넣어 주세요. 예: https://blog.naver.com/bbae30714/224187426392" }); return; }
+    setPasting("네이버 글을 불러오는 중…");
+    try {
+      const r = await api("/api/admin/naver", ids);
+      const parsed = parseHtml(r.html);
+      await importParsed(parsed, undefined, { url: r.url, logNo: ids.logNo }, target);
+      setNaverUrl("");
+    } catch (e) { setPasting(""); setMsg({ ok: false, text: (e as Error).message }); }
+  }
+
+  async function importParsed({ title, parts, postedAt }: Pasted, at?: number, naver?: { url: string; logNo: string }, target?: string) {
+    const id = target ?? d?.id;
+    if (!id) return;
     if (!parts.length) { setMsg({ ok: false, text: "붙여넣은 내용에서 글이나 사진을 찾지 못했습니다." }); return; }
     const nImg = parts.filter((p) => p.type !== "text").length;
     setPasting(`붙여넣는 중… 사진 0/${nImg}`);
@@ -192,11 +217,14 @@ export default function PdfImporter() {
       const tags = [...tagSet];
       const t = x.meta.title || title || "";
       const g = guessTrip(t, tags, blocks.filter((b) => b.type === "text").map((b) => (b as { text: string }).text));
+      const nb = empty ? blocks : at !== undefined ? [...x.blocks.slice(0, at + 1), ...blocks, ...x.blocks.slice(at + 1)] : [...x.blocks, ...blocks];
       return {
         photos: { ...x.photos, ...photos },
-        blocks: empty ? blocks : [...x.blocks, ...blocks],
+        blocks: nb,
         meta: {
-          ...x.meta, title: t, cover: x.meta.cover ?? firstPhoto?.ph, hashtags: x.meta.hashtags || tags.join(" "),
+          ...x.meta, title: t,
+          ...(naver ? { naverUrl: naver.url, postId: naver.logNo } : {}),
+          ...(postedAt ? { publishedAt: postedAt } : {}), cover: x.meta.cover ?? firstPhoto?.ph, hashtags: x.meta.hashtags || tags.join(" "),
           date: x.meta.date || g.date, country: x.meta.country || g.country, city: x.meta.city || g.city, series: x.meta.series || g.series,
         },
         warnings: [
@@ -216,7 +244,7 @@ export default function PdfImporter() {
     const h = (e: ClipboardEvent) => {
       const t = e.target as HTMLElement | null;
       if (t && (t.closest("input, textarea:not(.paste-in), [contenteditable=true]"))) return;
-      if (!e.clipboardData || !document.querySelector(".paste-box")) return;
+      if (!e.clipboardData) return;
       e.preventDefault(); pasteRef.current(e.clipboardData);
     };
     document.addEventListener("paste", h);
@@ -351,7 +379,6 @@ export default function PdfImporter() {
         <div className="p-tbar">
           <button type="button" onClick={() => move(k, -1)} aria-label="위로" disabled={k === 0}>↑</button>
           <button type="button" onClick={() => move(k, 1)} aria-label="아래로" disabled={k === d.blocks.length - 1}>↓</button>
-          {b.type === "text" && <button type="button" onClick={() => setEditing(editing === k ? null : k)}>{editing === k ? "완료" : "글 고치기"}</button>}
           {b.type === "photo" && <>
             <button type="button" className={d.meta.cover === b.ph ? "on" : ""} onClick={() => setMeta({ cover: b.ph })}>{d.meta.cover === b.ph ? "대표 사진" : "대표로"}</button>
             <button type="button" onClick={async () => { const o = await rotate(d.photos[b.ph]); patch(d.id, (x) => ({ photos: { ...x.photos, [b.ph]: { ...x.photos[b.ph], blob: o.blob, url: URL.createObjectURL(o.blob), w: o.w, h: o.h } } })); }}>↻ 회전</button>
@@ -363,11 +390,21 @@ export default function PdfImporter() {
           <button type="button" onClick={() => pickPhotos(k)}>아래에 사진 추가</button>
           <button type="button" className="del" onClick={() => remove(k)}>삭제</button>
         </div>
-        {b.type === "text" && editing === k && (
-          <textarea className="p-ta" value={b.text} autoFocus rows={Math.min(24, b.text.split("\n").length + 3)}
-            onChange={(e) => setBlocks((bs) => (bs[k] = { type: "text", text: e.target.value }, bs))} />
-        )}
       </>
+    );
+  };
+
+  /** 문단은 미리보기 자리에서 바로 고쳐 씀. 사진이 섞인 내용을 붙여넣으면 그 아래에 글+사진으로 들어감 */
+  const textView = (k: number) => {
+    if (!d || d.status !== "ready") return null;
+    const b = d.blocks[k];
+    if (b.type !== "text") return null;
+    return (
+      <textarea className="p-ta" value={b.text} autoFocus={editing === k} placeholder="여기에 글을 쓰세요. 빈 줄로 문단을 나눕니다."
+        rows={Math.max(3, b.text.split("\n").length + 1)}
+        onFocus={() => setEditing(k)}
+        onChange={(e) => setBlocks((bs) => (bs[k] = { type: "text", text: e.target.value }, bs))}
+        onPaste={(e) => { if (hasImages(e.clipboardData)) { e.preventDefault(); e.stopPropagation(); onPasteContent(e.clipboardData, k); } }} />
     );
   };
 
@@ -389,6 +426,18 @@ export default function PdfImporter() {
     <div className="imp">
       <aside className="imp-side">
         <h1>글쓰기</h1>
+        {cfg && (!cfg.adminUids || !cfg.githubToken) && (
+          <div className="setup">
+            <b>저장하려면 설정 2가지가 필요합니다</b>
+            <ol>
+              {!cfg.adminUids && <li>관리자 번호 <code>ADMIN_UIDS</code> = 아래 번호
+                <span className="uidrow"><code>{user.uid}</code><button type="button" onClick={() => navigator.clipboard.writeText(user.uid).then(() => { setUidCopied(true); setTimeout(() => setUidCopied(false), 1500); })}>{uidCopied ? "복사됨" : "복사"}</button></span></li>}
+              {!cfg.githubToken && <li>저장용 열쇠 <code>GITHUB_TOKEN</code> = <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noreferrer">GitHub에서 만들기</a> (저장소 travel-drawer, Contents 읽기·쓰기)</li>}
+              <li><a href="https://vercel.com/gravo0801s-projects/travel-drawer/settings/environment-variables" target="_blank" rel="noreferrer">Vercel 환경변수</a>에 넣고 → Deployments에서 Redeploy</li>
+            </ol>
+            <small>설정 전에도 글쓰기·미리보기는 됩니다. 게시만 안 됩니다.</small>
+          </div>
+        )}
         <div className="imp-new">
           <button type="button" onClick={newPost}>✎ 새 글 쓰기<span>직접 쓰고 사진 넣기</span></button>
           <button type="button" onClick={() => fileIn.current?.click()}>⇪ PDF 가져오기<span>자동 정리</span></button>
@@ -428,15 +477,28 @@ export default function PdfImporter() {
       </aside>
 
       <section className="imp-main">
-        {!d && <div className="imp-empty"><p>왼쪽에서 <b>새 글 쓰기</b>를 누르거나 PDF를 올리세요.<br />여기에서 게시될 모습 그대로 보면서 고칠 수 있습니다.</p></div>}
+        {!d && <div className="imp-empty start">
+          <p className="big">{pasting ? <span className="spin">{pasting}</span> : <>그냥 <kbd>Ctrl</kbd> + <kbd>V</kbd></>}</p>
+          <ol>
+            <li>네이버 블로그에서 옮길 글을 엽니다.</li>
+            <li>본문을 드래그하거나 <kbd>Ctrl</kbd>+<kbd>A</kbd> → <kbd>Ctrl</kbd>+<kbd>C</kbd> (또는 <b>글 주소만 복사</b>)</li>
+            <li>이 화면에서 <kbd>Ctrl</kbd>+<kbd>V</kbd> → 글과 사진이 순서대로 들어옵니다.</li>
+            <li>나라·도시 확인 후 <b>[이 글만 게시]</b></li>
+          </ol>
+          <p className="muted">직접 쓰려면 왼쪽 <b>새 글 쓰기</b>, PDF는 왼쪽에 끌어다 놓기</p>
+        </div>}
         {d && (d.status === "queued" || d.status === "extract" || false) && <div className="imp-empty"><p className="spin">{d.step || STATUS[d.status]}</p></div>}
         {d && d.status === "error" && <div className="imp-empty"><p className="bad">{d.error}</p>
 </div>}
         {d && preview && <>
           {d.kind === "new" && d.status === "ready" && (
             <div className="paste-box">
+              <form className="url-row" onSubmit={(e) => { e.preventDefault(); importUrl(); }}>
+                <input value={naverUrl} onChange={(e) => setNaverUrl(e.target.value)} placeholder="네이버 글 주소 붙여넣기 (예: https://blog.naver.com/bbae30714/224187426392)" disabled={!!pasting} />
+                <button className="btn" type="submit" disabled={!!pasting || !naverUrl.trim()}>글·사진 가져오기</button>
+              </form>
               <textarea className="paste-in" aria-label="여기에 붙여넣기" value="" onChange={() => {}} disabled={!!pasting}
-                placeholder={pasting || "여기를 누르고 붙여넣기 (Ctrl+V)\n네이버 글 [수정하기] 화면에서 본문을 전체 선택(Ctrl+A) → 복사(Ctrl+C)한 뒤 붙여넣으면 글과 사진이 순서대로 들어옵니다."}
+                placeholder={pasting || "또는 여기를 누르고 붙여넣기 (Ctrl+V)\n네이버 글 화면에서 본문을 전체 선택(Ctrl+A) → 복사(Ctrl+C)한 뒤 붙여넣으면 글과 사진이 순서대로 들어옵니다."}
                 onPaste={(e) => { e.preventDefault(); e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); onPasteContent(e.clipboardData); }} />
             </div>
           )}
@@ -460,7 +522,7 @@ export default function PdfImporter() {
             </div>
           </form>
           <article className="post imp-preview" aria-label="게시 미리보기">
-            <PostView post={preview} tools={d.status === "ready" ? tools : undefined} />
+            <PostView post={preview} tools={d.status === "ready" ? tools : undefined} textView={textView} />
             {d.status === "ready" && <div className="imp-add">
               <button className="btn ghost" type="button" onClick={() => addText(d.blocks.length - 1)}>+ 글 문단</button>
               <button className="btn ghost" type="button" onClick={() => pickPhotos(-1)}>+ 사진</button>
