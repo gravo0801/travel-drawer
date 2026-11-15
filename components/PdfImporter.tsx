@@ -4,7 +4,8 @@ import Link from "next/link";
 import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, type User } from "firebase/auth";
 import { firebaseApp } from "@/lib/firebase";
 import { extractPdf } from "@/lib/pdf-extract";
-import { pdfToPost } from "@/lib/pdf-to-post";
+import { pdfToPost, guessTrip } from "@/lib/pdf-to-post";
+import { parsePaste } from "@/lib/paste-to-blocks";
 import type { Block, Post } from "@/lib/types";
 import PostView from "./PostView";
 
@@ -28,6 +29,7 @@ const STATUS: Record<Status, string> = {
 const today = () => new Date().toISOString().slice(0, 10);
 const pad = (n: number) => String(n).padStart(3, "0");
 const MAX_EDGE = 2400;
+const FAIL = "⚠ 사진을 가져오지 못한 자리 — 이 문단을 지우고 '아래에 사진 추가'로 사진을 넣어 주세요.";
 
 /** 편집 상태 → 실제 글(post.json) 형식. preview면 사진 주소를 브라우저 임시 주소로. */
 function build(d: Draft, preview: boolean): { post: Post; files: { file: string; blob: Blob }[] } {
@@ -62,13 +64,24 @@ async function toBase64(b: Blob): Promise<string> {
 }
 
 /** 원본 사진으로 교체할 때: 회전 정보 반영, 너무 크면 줄여서 JPEG로. */
-async function loadOriginal(f: File): Promise<{ blob: Blob; w: number; h: number }> {
+async function loadOriginal(f: Blob): Promise<{ blob: Blob; w: number; h: number }> {
   const bmp = await createImageBitmap(f);
   const k = Math.min(1, MAX_EDGE / Math.max(bmp.width, bmp.height));
   const c = document.createElement("canvas");
   c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
   const x = c.getContext("2d")!; x.imageSmoothingQuality = "high"; x.drawImage(bmp, 0, 0, c.width, c.height);
   const blob = await new Promise<Blob>((r, j) => c.toBlob((b) => (b ? r(b) : j(new Error("변환 실패"))), "image/jpeg", 0.9));
+  return { blob, w: c.width, h: c.height };
+}
+
+/** 사진 90도 회전 (시계 방향) */
+async function rotate(p: { blob: Blob }): Promise<{ blob: Blob; w: number; h: number }> {
+  const bmp = await createImageBitmap(p.blob);
+  const c = document.createElement("canvas");
+  c.width = bmp.height; c.height = bmp.width;
+  const x = c.getContext("2d")!;
+  x.translate(c.width, 0); x.rotate(Math.PI / 2); x.drawImage(bmp, 0, 0);
+  const blob = await new Promise<Blob>((r, j) => c.toBlob((b) => (b ? r(b) : j(new Error("회전 실패"))), "image/jpeg", 0.92));
   return { blob, w: c.width, h: c.height };
 }
 
@@ -82,6 +95,7 @@ export default function PdfImporter() {
   const [over, setOver] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string; links?: { id: string; title: string }[] } | null>(null);
   const [editing, setEditing] = useState<number | null>(null);
+  const [pasting, setPasting] = useState("");
   const busy = useRef(false);
   const fileIn = useRef<HTMLInputElement>(null);
   const replaceIn = useRef<HTMLInputElement>(null);
@@ -126,6 +140,88 @@ export default function PdfImporter() {
     }]);
     setCur(id); setEditing(0); setMsg(null);
   }
+
+  /** 붙여넣기: 네이버 글 수정 화면에서 복사한 글·사진을 순서대로 넣음 */
+  async function fetchImage(src: string): Promise<Blob> {
+    if (src.startsWith("data:")) return (await fetch(src)).blob();
+    const u = new URL(src, location.href);
+    if (/(^|\.)(pstatic\.net|naver\.net|naver\.com)$/i.test(u.hostname)) {
+      const r = await fetch("/api/admin/image", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${await user!.getIdToken()}` }, body: JSON.stringify({ url: u.toString() }) });
+      if (!r.ok) throw new Error("fail");
+      return r.blob();
+    }
+    const r = await fetch(u.toString());
+    if (!r.ok) throw new Error("fail");
+    return r.blob();
+  }
+
+  async function onPasteContent(dt: DataTransfer) {
+    if (!d) return;
+    const id = d.id;
+    const { title, parts } = parsePaste(dt);
+    if (!parts.length) { setMsg({ ok: false, text: "붙여넣은 내용에서 글이나 사진을 찾지 못했습니다." }); return; }
+    const nImg = parts.filter((p) => p.type !== "text").length;
+    setPasting(`붙여넣는 중… 사진 0/${nImg}`);
+    const photos: Record<string, Ph> = {};
+    const blocks: DBlock[] = [];
+    let paras: string[] = [], done = 0, failed = 0, small = 0;
+    const flush = () => { if (paras.length) blocks.push({ type: "text", text: paras.join("\n\n") }); paras = []; };
+    // 해시태그만 있는 문단은 태그로 옮기고, 문단 끝의 태그도 떼어 냄
+    const tagSet = new Set<string>();
+    for (const p of parts) if (p.type === "text") {
+      (p.text.match(/#[^\s#]+/g) ?? []).forEach((t) => tagSet.add(t.slice(1)));
+      p.text = p.text.replace(/(\s*#[^\s#]+)+\s*$/, "").trim();
+    }
+    for (const p of parts) {
+      if (p.type === "text") { if (p.text) paras.push(p.text); continue; }
+      flush();
+      try {
+        const o = await loadOriginal(p.type === "file" ? p.file : await fetchImage(p.src));
+        const key = crypto.randomUUID();
+        photos[key] = { key, blob: o.blob, url: URL.createObjectURL(o.blob), w: o.w, h: o.h };
+        blocks.push({ type: "photo", ph: key });
+        if (Math.max(o.w, o.h) < 1000) small++;
+      } catch { failed++; blocks.push({ type: "text", text: FAIL }); }
+      setPasting(`붙여넣는 중… 사진 ${++done}/${nImg}`);
+    }
+    flush();
+    setPasting("");
+    patch(id, (x) => {
+      const empty = x.blocks.length === 0 || (x.blocks.length === 1 && x.blocks[0].type === "text" && !x.blocks[0].text.trim());
+      const firstPhoto = blocks.find((b) => b.type === "photo") as { ph: string } | undefined;
+      const tags = [...tagSet];
+      const t = x.meta.title || title || "";
+      const g = guessTrip(t, tags, blocks.filter((b) => b.type === "text").map((b) => (b as { text: string }).text));
+      return {
+        photos: { ...x.photos, ...photos },
+        blocks: empty ? blocks : [...x.blocks, ...blocks],
+        meta: {
+          ...x.meta, title: t, cover: x.meta.cover ?? firstPhoto?.ph, hashtags: x.meta.hashtags || tags.join(" "),
+          date: x.meta.date || g.date, country: x.meta.country || g.country, city: x.meta.city || g.city, series: x.meta.series || g.series,
+        },
+        warnings: [
+          ...(failed ? [`사진 ${failed}장을 가져오지 못했습니다. ⚠ 표시된 자리에 직접 넣어 주세요.`] : []),
+          ...(small ? [`사진 ${small}장은 가로·세로 1000px 미만입니다. 필요하면 '원본으로 교체'를 눌러 주세요.`] : []),
+        ],
+      };
+    });
+    setEditing(null);
+    setMsg({ ok: true, text: `글 ${parts.length - nImg}문단, 사진 ${nImg - failed}장을 넣었습니다.` });
+  }
+
+  // 새 글 화면에서는 입력칸 밖 어디서든 붙여넣으면 글·사진이 들어오게
+  const pasteRef = useRef(onPasteContent);
+  pasteRef.current = onPasteContent;
+  useEffect(() => {
+    const h = (e: ClipboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.closest("input, textarea:not(.paste-in), [contenteditable=true]"))) return;
+      if (!e.clipboardData || !document.querySelector(".paste-box")) return;
+      e.preventDefault(); pasteRef.current(e.clipboardData);
+    };
+    document.addEventListener("paste", h);
+    return () => document.removeEventListener("paste", h);
+  }, []);
 
   /** 사진 여러 장을 고른 순서대로 at번째 블록 뒤에 넣음 (at = -1이면 맨 끝) */
   async function addPhotos(list: FileList, at: number) {
@@ -187,6 +283,8 @@ export default function PdfImporter() {
 
   async function publish(targets: Draft[]) {
     if (!targets.length) return;
+    const bad = targets.find((t) => t.blocks.some((b) => b.type === "text" && b.text.includes("⚠ 사진을 가져오지 못한 자리")));
+    if (bad) { setMsg({ ok: false, text: `"${bad.meta.title || "새 글"}"에 사진을 못 가져온 자리(⚠)가 남아 있습니다. 사진을 넣고 그 문단을 지워 주세요.` }); return; }
     setMsg(null);
     targets.forEach((d) => patch(d.id, () => ({ status: "publishing", step: "사진 올리는 중…", error: undefined })));
     try {
@@ -256,6 +354,7 @@ export default function PdfImporter() {
           {b.type === "text" && <button type="button" onClick={() => setEditing(editing === k ? null : k)}>{editing === k ? "완료" : "글 고치기"}</button>}
           {b.type === "photo" && <>
             <button type="button" className={d.meta.cover === b.ph ? "on" : ""} onClick={() => setMeta({ cover: b.ph })}>{d.meta.cover === b.ph ? "대표 사진" : "대표로"}</button>
+            <button type="button" onClick={async () => { const o = await rotate(d.photos[b.ph]); patch(d.id, (x) => ({ photos: { ...x.photos, [b.ph]: { ...x.photos[b.ph], blob: o.blob, url: URL.createObjectURL(o.blob), w: o.w, h: o.h } } })); }}>↻ 회전</button>
             <button type="button" onClick={() => { replaceKey.current = b.ph; replaceIn.current?.click(); }}>원본으로 교체</button>
           </>}
           {nextIsPhoto && b.type !== "text" && <button type="button" onClick={() => joinNext(k)}>다음 사진과 묶기</button>}
@@ -334,6 +433,13 @@ export default function PdfImporter() {
         {d && d.status === "error" && <div className="imp-empty"><p className="bad">{d.error}</p>
 </div>}
         {d && preview && <>
+          {d.kind === "new" && d.status === "ready" && (
+            <div className="paste-box">
+              <textarea className="paste-in" aria-label="여기에 붙여넣기" value="" onChange={() => {}} disabled={!!pasting}
+                placeholder={pasting || "여기를 누르고 붙여넣기 (Ctrl+V)\n네이버 글 [수정하기] 화면에서 본문을 전체 선택(Ctrl+A) → 복사(Ctrl+C)한 뒤 붙여넣으면 글과 사진이 순서대로 들어옵니다."}
+                onPaste={(e) => { e.preventDefault(); e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); onPasteContent(e.clipboardData); }} />
+            </div>
+          )}
           <form className="meta" onSubmit={(e) => e.preventDefault()}>
             {d.error && <p className="bad wide">{d.error}</p>}
             {d.warnings.map((w) => <p key={w} className="warn wide">{w}</p>)}
