@@ -428,3 +428,14 @@ kbd{display:inline-block;padding:1px 8px;border:1px solid var(--line);border-bot
 .p-map small{font:400 12.5px/1.5 var(--ui);color:var(--mute)}
 .p-text .p-place{font:400 13.5px/1.6 var(--ui);color:var(--mute)}
 @media (max-width:640px){.p-map iframe{height:200px}}
+/* 글쓰기: 화면 아래 고정 게시 막대와 알림 (휴대폰에서도 바로 보이게) */
+.act-bar{position:sticky;bottom:0;z-index:30;display:flex;align-items:center;gap:8px;padding:10px clamp(12px,3vw,32px);padding-bottom:max(10px,env(safe-area-inset-bottom));background:var(--bar);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--line);order:2}
+.act-bar .act-st{flex:1;min-width:0;font:400 13px var(--ui);color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.act-bar .btn{min-height:44px;padding:0 18px;font-size:14.5px}
+.imp-main{display:flex;flex-direction:column}
+.imp-main > .imp-preview{order:1}
+.toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);z-index:200;width:min(560px,calc(100vw - 24px));display:grid;gap:6px;padding:14px 44px 14px 16px;border-radius:14px;background:var(--bg2);border:1px solid var(--line);box-shadow:0 12px 36px rgba(0,0,0,.45);font:400 14px/1.6 var(--ui);color:var(--ink)}
+.toast.ok{border-color:#7cc49a}.toast.bad{border-color:#e57373}
+.toast p{margin:0}.toast a{color:var(--acc);text-decoration:underline}
+.toast button{position:absolute;top:8px;right:8px;width:30px;height:30px;border:0;border-radius:15px;background:transparent;color:var(--mute);font-size:20px;cursor:pointer}
+.admin .err,.imp .err{color:#e57373;font:400 13.5px/1.6 var(--ui)}

@@ -1,7 +1,8 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, type User } from "firebase/auth";
+import { getAuth, onAuthStateChanged, type User } from "firebase/auth";
+import { login } from "@/lib/login";
 import { firebaseApp } from "@/lib/firebase";
 import { extractPdf } from "@/lib/pdf-extract";
 import { pdfToPost, guessTrip } from "@/lib/pdf-to-post";
@@ -506,7 +507,8 @@ export default function PdfImporter() {
     <main className="admin"><section className="admin-card">
       <h1>글쓰기</h1>
       <p className="muted">관리자 로그인 후 사용할 수 있습니다.</p>
-      <button className="btn" type="button" onClick={() => signInWithPopup(getAuth(app), new GoogleAuthProvider()).catch(() => {})}>Google 계정으로 로그인</button>
+      <button className="btn" type="button" onClick={async () => { const e = await login(app); if (e) setMsg({ ok: false, text: e }); }}>Google 계정으로 로그인</button>
+      {msg && !msg.ok && <p className="err" role="alert">{msg.text}</p>}
     </section></main>
   );
 
@@ -612,6 +614,11 @@ export default function PdfImporter() {
               <button className="btn" type="button" onClick={() => publish([d])} disabled={d.status !== "ready"}>{d.orig ? "수정 내용 게시" : "이 글만 게시"}</button>
             </div>
           </form>
+          <div className="act-bar">
+            <span className="act-st">{d.status === "publishing" ? (d.step || "게시하는 중…") : d.orig ? "수정 중인 글" : "새 글"}</span>
+            <button className="btn ghost" type="button" onClick={() => pickPhotos(-1)} disabled={d.status !== "ready"}>사진 추가</button>
+            <button className="btn" type="button" onClick={() => publish([d])} disabled={d.status !== "ready"}>{d.status === "publishing" ? "게시 중…" : d.orig ? "수정 내용 게시" : "이 글 게시"}</button>
+          </div>
           <article className="post imp-preview" aria-label="게시 미리보기">
             <PostView post={preview} tools={d.status === "ready" ? tools : undefined} textView={textView} />
             {d.status === "ready" && <div className="imp-add">
@@ -620,6 +627,11 @@ export default function PdfImporter() {
             </div>}
           </article>
         </>}
+        {msg && <div className={"toast" + (msg.ok ? " ok" : " bad")} role="status" aria-live="polite">
+          <p>{msg.text}</p>
+          {msg.links?.map((l) => <Link key={l.id} href={`/posts/${l.id}`}>{l.title} →</Link>)}
+          <button type="button" aria-label="알림 닫기" onClick={() => setMsg(null)}>×</button>
+        </div>}
       </section>
     </div>
   );
