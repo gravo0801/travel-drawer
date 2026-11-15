@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { FONTS, SLOTS, type SlotKey } from "@/lib/site";
 import { useSettings } from "./SettingsProvider";
 
@@ -128,6 +129,10 @@ export default function Settings() {
               <div className="live"><b>미리보기</b><p className="lt">이탈리아 5일차 - 베네치아 본섬 당일치기</p><p className="lb">2025.05 · 이탈리아 · 베네치아. 메스트레 숙소에 짐을 풀고, 오후에는 수상버스를 타고 본섬으로 건너갔다.</p></div>
             </div>
           )}
+        </div>
+        <div className="dfoot">
+          <Link href="/write" onClick={() => s.setOpen(false)}>✎ 글쓰기 · PDF 가져오기</Link>
+          <Link href="/admin" onClick={() => s.setOpen(false)}>관리자</Link>
         </div>
       </aside>
     </>

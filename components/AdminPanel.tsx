@@ -45,7 +45,7 @@ export default function AdminPanel() {
       {ready && app && user && (
         <>
           <p>로그인됨: <strong>{user.displayName ?? "이름 없음"}</strong></p>
-          <Link className="btn" href="/admin/import">PDF로 글 올리기 →</Link>
+          <Link className="btn" href="/write">글쓰기 · PDF 가져오기 →</Link>
           <p className="muted" style={{ marginTop: 18 }}>아래 고유번호(UID)를 Vercel 환경변수 ADMIN_UIDS에 넣으면 글 올리기 권한이 생깁니다.</p>
           <code className="uid">{user.uid}</code>
           <div className="row">

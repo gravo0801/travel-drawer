@@ -375,3 +375,14 @@ button,input{font:inherit;color:inherit}
 .p-ta{display:block;width:100%;max-width:680px;margin:0 auto 20px;padding:14px;border:1px solid var(--acc);border-radius:10px;background:var(--bg);color:var(--ink);font:400 15px/1.8 var(--bf)}
 @media (hover:none){.p-tbar{opacity:1;margin-top:4px}}
 @media (max-width:860px){.imp{grid-template-columns:1fr}.imp-side{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line)}.meta{grid-template-columns:1fr 1fr}}
+.gear.write{background:var(--acc);border-color:var(--acc);color:var(--acc-ink)}
+.gear.write:hover{background:var(--acc);filter:brightness(1.08)}
+@media (max-width:720px){.gear.write + .gear{margin-left:0}.gear.write span{display:none}.gear.write{padding:0 12px}}
+.dfoot{display:flex;justify-content:space-between;gap:10px;padding:14px 18px;border-top:1px solid var(--line);font:400 13.5px var(--ui)}
+.dfoot a{color:var(--mute)}.dfoot a:first-child{color:var(--acc);font-weight:500}
+.dfoot a:hover{text-decoration:underline}
+.imp-new{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.imp-new button{display:grid;gap:4px;padding:16px 10px;border:1px solid var(--line);border-radius:14px;background:var(--bg);color:var(--ink);cursor:pointer;text-align:center;font:600 14px var(--ui);transition:border-color .2s}
+.imp-new button span{font:400 12px var(--ui);color:var(--mute)}
+.imp-new button:hover{border-color:var(--acc)}
+.imp-add{display:flex;justify-content:center;gap:8px;margin:30px 0}

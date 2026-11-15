@@ -16,7 +16,7 @@ type Meta = {
   hashtags: string; summary: string; places: string[]; cover?: string; publishedAt: string; naverUrl?: string;
 };
 type Draft = {
-  id: string; file: File; status: Status; step: string; error?: string; warnings: string[];
+  id: string; kind: "pdf" | "new"; file?: File; status: Status; step: string; error?: string; warnings: string[];
   photos: Record<string, Ph>; blocks: DBlock[]; meta: Meta; selected: boolean; overwrite: boolean;
   manuscript?: string; hints?: { naverUrl?: string; postedAt?: string; hashtags: string[] };
 };
@@ -42,15 +42,15 @@ function build(d: Draft, preview: boolean): { post: Post; files: { file: string;
     const p = d.photos[key];
     return { src: srcOf.get(key)!, w: p.w, h: p.h };
   };
-  const blocks: Block[] = d.blocks.map((b) =>
+  const blocks: Block[] = d.blocks.filter((b) => preview || b.type !== "text" || b.text.trim()).map((b) =>
     b.type === "text" ? b : b.type === "photo" ? { type: "photo", ...use(b.ph) } : { type: "gallery", photos: b.phs.map(use) });
   const cover = m.cover && srcOf.has(m.cover) ? srcOf.get(m.cover)! : files.length ? srcOf.values().next().value! : null;
   const post: Post = {
-    id: m.postId, title: m.title.trim(), trip: { date: m.date.trim(), country: m.country.trim(), city: m.city.trim() },
+    id: m.postId, title: m.title.trim() || (preview ? "제목을 입력하세요" : ""), trip: { date: m.date.trim(), country: m.country.trim(), city: m.city.trim() },
     publishedAt: m.publishedAt, series: m.series.trim() || undefined, category: m.category.trim() || null,
     hashtags: m.hashtags.split(/[\s,#]+/).map((t) => t.trim()).filter(Boolean),
     summary: m.summary.trim() || undefined, places: m.places.length ? m.places : undefined,
-    cover, blocks, naverUrl: m.naverUrl ?? null, source: m.naverUrl ? "naver" : "pdf", photoCount: files.length,
+    cover, blocks, naverUrl: m.naverUrl ?? null, source: d.kind === "new" ? "editor" : m.naverUrl ? "naver" : "pdf", photoCount: files.length,
   };
   return { post, files };
 }
@@ -85,6 +85,9 @@ export default function PdfImporter() {
   const fileIn = useRef<HTMLInputElement>(null);
   const replaceIn = useRef<HTMLInputElement>(null);
   const replaceKey = useRef<string | null>(null);
+  const photoIn = useRef<HTMLInputElement>(null);
+  const photoAt = useRef(-1);
+  const pickPhotos = (at: number) => { photoAt.current = at; photoIn.current?.click(); };
 
   useEffect(() => {
     if (!app) { setReady(true); return; }
@@ -106,7 +109,7 @@ export default function PdfImporter() {
     const pdfs = [...list].filter((f) => f.type === "application/pdf" || /\.pdf$/i.test(f.name));
     if (!pdfs.length) { setMsg({ ok: false, text: "PDF 파일만 올릴 수 있습니다." }); return; }
     const next: Draft[] = pdfs.map((file) => ({
-      id: crypto.randomUUID(), file, status: "queued", step: "", warnings: [], photos: {}, blocks: [], selected: true, overwrite: false,
+      id: crypto.randomUUID(), kind: "pdf", file, status: "queued", step: "", warnings: [], photos: {}, blocks: [], selected: true, overwrite: false,
       meta: { postId: "", title: file.name.replace(/\.pdf$/i, ""), date: "", country: "", city: "", series: "", category: "", hashtags: "", summary: "", places: [], publishedAt: today() },
     }));
     setDrafts((ds) => [...ds, ...next]);
@@ -114,10 +117,62 @@ export default function PdfImporter() {
     setMsg(null);
   }
 
+  function newPost() {
+    const id = crypto.randomUUID();
+    setDrafts((ds) => [...ds, {
+      id, kind: "new", status: "ready", step: "", warnings: [], photos: {}, blocks: [{ type: "text", text: "" }], selected: true, overwrite: false,
+      meta: { postId: `p${Date.now().toString(36)}`, title: "", date: "", country: "", city: "", series: "", category: "", hashtags: "", summary: "", places: [], publishedAt: today() },
+    }]);
+    setCur(id); setEditing(0); setMsg(null);
+  }
+
+  /** 사진 여러 장을 고른 순서대로 at번째 블록 뒤에 넣음 (at = -1이면 맨 끝) */
+  async function addPhotos(list: FileList, at: number) {
+    if (!d) return;
+    const files = [...list].filter((f) => f.type.startsWith("image/") || /\.(heic|jpe?g|png|webp)$/i.test(f.name));
+    const added: Ph[] = [];
+    for (const f of files) {
+      try { const o = await loadOriginal(f); added.push({ key: crypto.randomUUID(), blob: o.blob, url: URL.createObjectURL(o.blob), w: o.w, h: o.h }); }
+      catch { setMsg({ ok: false, text: `${f.name}: 사진을 읽지 못했습니다.` }); }
+    }
+    if (!added.length) return;
+    patch(d.id, (x) => {
+      const photos = { ...x.photos }; added.forEach((p) => (photos[p.key] = p));
+      const blocks = [...x.blocks];
+      const nb: DBlock[] = added.map((p) => ({ type: "photo", ph: p.key }));
+      blocks.splice(at < 0 ? blocks.length : at + 1, 0, ...nb);
+      return { photos, blocks, meta: x.meta.cover ? x.meta : { ...x.meta, cover: added[0].key } };
+    });
+  }
+
+  /** 새 글: 쓴 내용으로 AI가 제목·날짜·나라·도시·태그·요약만 채움 (본문은 그대로) */
+  async function aiFill(dr: Draft) {
+    const keys: string[] = [];
+    const parts = dr.blocks.map((b) => {
+      if (b.type === "text") return b.text;
+      const ks = b.type === "photo" ? [b.ph] : b.phs;
+      return ks.map((k) => { keys.push(k); return `[[사진 ${keys.length}]]`; }).join("\n");
+    });
+    const manuscript = [dr.meta.title && `제목: ${dr.meta.title}`, ...parts].filter(Boolean).join("\n\n");
+    if (!manuscript.replace(/\[\[사진 \d+\]\]|\s/g, "")) { setMsg({ ok: false, text: "본문을 조금 쓴 뒤에 눌러 주세요." }); return; }
+    patch(dr.id, () => ({ status: "analyze", step: "AI가 제목·태그를 채우는 중…", error: undefined }));
+    try {
+      const a = await api("/api/admin/analyze", { manuscript, photoCount: keys.length, hints: { hashtags: [] } });
+      patch(dr.id, (x) => ({
+        status: "ready", step: "",
+        meta: {
+          ...x.meta, title: x.meta.title || a.title, date: x.meta.date || a.trip.date, country: x.meta.country || a.trip.country, city: x.meta.city || a.trip.city,
+          series: x.meta.series || (a.series ?? ""), category: x.meta.category || (a.category ?? ""), hashtags: x.meta.hashtags || (a.hashtags as string[]).join(" "),
+          summary: x.meta.summary || (a.summary ?? ""), places: a.places ?? [], cover: x.meta.cover ?? keys[a.cover - 1],
+        },
+      }));
+    } catch (e) { patch(dr.id, () => ({ status: "ready", step: "", error: (e as Error).message })); }
+  }
+
   /** 분석: 추출된 원고를 AI에 보내고 결과를 편집 상태로 옮김 */
   const analyze = useCallback(async (d: Draft, photoKeys: string[]) => {
     patch(d.id, () => ({ status: "analyze", step: "AI가 글을 읽고 정리하는 중…", error: undefined }));
-    const a = await api("/api/admin/analyze", { manuscript: d.manuscript, photoCount: photoKeys.length, hints: d.hints, fileName: d.file.name });
+    const a = await api("/api/admin/analyze", { manuscript: d.manuscript, photoCount: photoKeys.length, hints: d.hints, fileName: d.file?.name });
     const key = (n: number) => photoKeys[n - 1];
     const blocks: DBlock[] = (a.blocks as ({ type: "text"; text: string } | { type: "photo"; ref: number } | { type: "gallery"; refs: number[] })[]).map((b) =>
       b.type === "text" ? b : b.type === "photo" ? { type: "photo", ph: key(b.ref) } : { type: "gallery", phs: b.refs.map(key) });
@@ -139,7 +194,7 @@ export default function PdfImporter() {
     (async () => {
       try {
         patch(d.id, () => ({ status: "extract", step: "PDF를 여는 중…" }));
-        const ex = await extractPdf(d.file, (p, t) => patch(d.id, () => ({ step: `PDF 읽는 중 ${p}/${t}쪽` })));
+        const ex = await extractPdf(d.file!, (p, t) => patch(d.id, () => ({ step: `PDF 읽는 중 ${p}/${t}쪽` })));
         const photos: Record<string, Ph> = {};
         const keys = ex.photos.map((p) => { const key = crypto.randomUUID(); photos[key] = { key, blob: p.blob, url: p.url, w: p.w, h: p.h }; return key; });
         const postId = ex.hints.naverId ?? `p${Date.now().toString(36)}`;
@@ -235,6 +290,7 @@ export default function PdfImporter() {
           {nextIsPhoto && b.type !== "text" && <button type="button" onClick={() => joinNext(k)}>다음 사진과 묶기</button>}
           {b.type === "gallery" && <button type="button" onClick={() => split(k)}>묶음 풀기</button>}
           <button type="button" onClick={() => addText(k)}>아래에 글 추가</button>
+          <button type="button" onClick={() => pickPhotos(k)}>아래에 사진 추가</button>
           <button type="button" className="del" onClick={() => remove(k)}>삭제</button>
         </div>
         {b.type === "text" && editing === k && (
@@ -247,22 +303,26 @@ export default function PdfImporter() {
 
   /* ---------- 렌더 ---------- */
   if (!ready) return <main className="admin"><p className="muted">확인 중…</p></main>;
-  if (!app) return <main className="admin"><section className="admin-card"><h1>PDF로 글 올리기</h1><p className="muted">Firebase 설정이 연결되지 않았습니다.</p></section></main>;
+  if (!app) return <main className="admin"><section className="admin-card"><h1>글쓰기</h1><p className="muted">Firebase 설정이 연결되지 않았습니다.</p></section></main>;
   if (!user) return (
     <main className="admin"><section className="admin-card">
-      <h1>PDF로 글 올리기</h1>
+      <h1>글쓰기</h1>
       <p className="muted">관리자 로그인 후 사용할 수 있습니다.</p>
       <button className="btn" type="button" onClick={() => signInWithPopup(getAuth(app), new GoogleAuthProvider()).catch(() => {})}>Google 계정으로 로그인</button>
     </section></main>
   );
 
   const ready_ = drafts.filter((x) => x.status === "ready" && x.selected);
-  const preview = d && (d.status === "ready" || d.status === "publishing" || d.status === "done") ? build(d, true).post : null;
+  const preview = d && (d.status === "ready" || d.status === "publishing" || d.status === "done" || (d.kind === "new" && d.status === "analyze")) ? build(d, true).post : null;
 
   return (
     <div className="imp">
       <aside className="imp-side">
-        <h1>PDF로 글 올리기</h1>
+        <h1>글쓰기</h1>
+        <div className="imp-new">
+          <button type="button" onClick={newPost}>✎ 새 글 쓰기<span>직접 쓰고 사진 넣기</span></button>
+          <button type="button" onClick={() => fileIn.current?.click()}>⇪ PDF 가져오기<span>AI가 정리</span></button>
+        </div>
         <div className={"drop" + (over ? " over" : "")} role="button" tabIndex={0}
           onClick={() => fileIn.current?.click()} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && fileIn.current?.click()}
           onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
@@ -271,6 +331,7 @@ export default function PdfImporter() {
           <span>또는 눌러서 고르기 · 여러 편 한 번에 가능</span>
         </div>
         <input ref={fileIn} type="file" accept="application/pdf,.pdf" multiple hidden onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} />
+        <input ref={photoIn} type="file" accept="image/*" multiple hidden onChange={(e) => { if (e.target.files) addPhotos(e.target.files, photoAt.current); e.target.value = ""; }} />
         <input ref={replaceIn} type="file" accept="image/*" hidden onChange={(e) => { onReplace(e.target.files?.[0]); e.target.value = ""; }} />
 
         {!!drafts.length && <ul className="q">
@@ -278,7 +339,7 @@ export default function PdfImporter() {
             <li key={x.id} className={x.id === cur ? "on" : ""}>
               {x.status === "ready" && <input type="checkbox" checked={x.selected} aria-label="게시할 글로 선택" onChange={(e) => patch(x.id, () => ({ selected: e.target.checked }))} />}
               <button type="button" onClick={() => { setCur(x.id); setEditing(null); }}>
-                <span className="q-t">{x.meta.title}</span>
+                <span className="q-t">{x.kind === "new" ? "✎ " : ""}{x.meta.title || "새 글"}</span>
                 <span className={"q-s s-" + x.status}>{x.step || STATUS[x.status]}{x.status === "ready" && x.warnings.length ? " · 확인 필요" : ""}</span>
               </button>
             </li>
@@ -297,8 +358,8 @@ export default function PdfImporter() {
       </aside>
 
       <section className="imp-main">
-        {!d && <div className="imp-empty"><p>왼쪽에 PDF를 올리면 여기에서 게시될 모습 그대로 미리 볼 수 있습니다.</p></div>}
-        {d && (d.status === "queued" || d.status === "extract" || d.status === "analyze") && <div className="imp-empty"><p className="spin">{d.step || STATUS[d.status]}</p></div>}
+        {!d && <div className="imp-empty"><p>왼쪽에서 <b>새 글 쓰기</b>를 누르거나 PDF를 올리세요.<br />여기에서 게시될 모습 그대로 보면서 고칠 수 있습니다.</p></div>}
+        {d && (d.status === "queued" || d.status === "extract" || (d.status === "analyze" && d.kind === "pdf")) && <div className="imp-empty"><p className="spin">{d.step || STATUS[d.status]}</p></div>}
         {d && d.status === "error" && <div className="imp-empty"><p className="bad">{d.error}</p>
           {d.manuscript !== undefined && <button className="btn" type="button" onClick={() => reanalyze(d)}>다시 분석</button>}</div>}
         {d && preview && <>
@@ -317,12 +378,19 @@ export default function PdfImporter() {
             {!!d.meta.places.length && <p className="wide places"><b>글에 나온 장소</b> {d.meta.places.join(" → ")}</p>}
             <div className="wide row">
               <label className="chk"><input type="checkbox" checked={d.overwrite} onChange={(e) => patch(d.id, () => ({ overwrite: e.target.checked }))} />기존 글 덮어쓰기 <small>(글 번호 {d.meta.postId})</small></label>
-              <button className="btn ghost" type="button" onClick={() => reanalyze(d)} disabled={d.status !== "ready"}>AI 다시 분석</button>
+              <button className="btn ghost" type="button" onClick={() => pickPhotos(-1)} disabled={d.status !== "ready"}>사진 추가</button>
+              {d.kind === "new"
+                ? <button className="btn ghost" type="button" onClick={() => aiFill(d)} disabled={d.status !== "ready"}>AI로 제목·태그 채우기</button>
+                : <button className="btn ghost" type="button" onClick={() => reanalyze(d)} disabled={d.status !== "ready"}>AI 다시 분석</button>}
               <button className="btn" type="button" onClick={() => publish([d])} disabled={d.status !== "ready"}>이 글만 게시</button>
             </div>
           </form>
           <article className="post imp-preview" aria-label="게시 미리보기">
             <PostView post={preview} tools={d.status === "ready" ? tools : undefined} />
+            {d.status === "ready" && <div className="imp-add">
+              <button className="btn ghost" type="button" onClick={() => addText(d.blocks.length - 1)}>+ 글 문단</button>
+              <button className="btn ghost" type="button" onClick={() => pickPhotos(-1)}>+ 사진</button>
+            </div>}
           </article>
         </>}
       </section>
