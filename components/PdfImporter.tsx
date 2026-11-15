@@ -204,7 +204,9 @@ export default function PdfImporter() {
       if (p.type === "text") { if (p.text) paras.push(p.text); continue; }
       flush();
       try {
+        if (p.type === "missing") throw new Error("붙여넣은 내용에 사진이 없음(화면에 아직 안 불러온 사진)");
         const o = await loadOriginal(p.type === "file" ? p.file : await fetchImage(p.src));
+        if (Math.max(o.w, o.h) < 200) throw new Error(`미리보기용 작은 사진만 받음(${o.w}×${o.h})`);
         const key = crypto.randomUUID();
         photos[key] = { key, blob: o.blob, url: URL.createObjectURL(o.blob), w: o.w, h: o.h };
         blocks.push({ type: "photo", ph: key });
@@ -231,7 +233,7 @@ export default function PdfImporter() {
           date: x.meta.date || g.date, country: x.meta.country || g.country, city: x.meta.city || g.city, series: x.meta.series || g.series,
         },
         warnings: [
-          ...(failed ? [`사진 ${failed}장을 가져오지 못했습니다. 이유: ${why} — ⚠ 자리에 직접 넣거나, 이유를 알려 주세요.`] : []),
+          ...(failed ? [`사진 ${failed}장을 가져오지 못했습니다. 이유: ${why}. 네이버 글 '주소'를 복사해 붙여넣으면 사진을 모두 가져올 수 있습니다.`] : []),
           ...(small ? [`사진 ${small}장은 가로·세로 1000px 미만입니다. 필요하면 '원본으로 교체'를 눌러 주세요.`] : []),
         ],
       };

@@ -20,20 +20,23 @@ export async function POST(req: Request) {
   if (u.protocol !== "https:" && u.protocol !== "http:") return json(400, "사진 주소가 올바르지 않습니다.");
   if (!HOST.test(u.hostname)) return json(400, "네이버 사진만 가져올 수 있습니다.");
 
+  // 네이버는 크기 옵션 없이 부르면 75px 미리보기를 줌 → 여러 크기를 동시에 받아 가장 큰 것을 고름
   const base = `https://${u.hostname}${u.pathname}`;
-  const candidates = [...new Set([base, `${base}?type=w3840`, `${base}?type=w966`, `${base}?type=w773`, u.toString().replace(/^http:/, "https:")])];
+  const candidates = [...new Set([`${base}?type=w3840`, `${base}?type=w2`, `${base}?type=w966`, `${base}?type=w773`, u.toString().replace(/^http:/, "https:")])];
   const tried: string[] = [];
-  for (const c of candidates) {
+  const got = await Promise.all(candidates.map(async (c) => {
     try {
       const r = await fetch(c, { headers: { referer: "https://blog.naver.com/", "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Safari/537.36", accept: "image/avif,image/webp,image/*,*/*" }, cache: "no-store" });
-      if (!r.ok) { tried.push(String(r.status)); continue; }
+      if (!r.ok) { tried.push(String(r.status)); return null; }
       const type = r.headers.get("content-type") ?? "";
-      if (!type.startsWith("image/")) { tried.push(type || "형식?"); continue; }
+      if (!type.startsWith("image/")) { tried.push(type || "형식?"); return null; }
       const buf = await r.arrayBuffer();
-      if (buf.byteLength > LIMIT) { tried.push("용량 큼"); continue; }
-      if (buf.byteLength < 500) { tried.push("빈 사진"); continue; }
-      return new Response(buf, { headers: { "content-type": type, "x-source-url": c, "cache-control": "no-store" } });
-    } catch (e) { tried.push((e as Error).message.slice(0, 40)); }
-  }
+      if (buf.byteLength > LIMIT) { tried.push("용량 큼"); return null; }
+      if (buf.byteLength < 500) { tried.push("빈 사진"); return null; }
+      return { c, type, buf };
+    } catch (e) { tried.push((e as Error).message.slice(0, 40)); return null; }
+  }));
+  const best = got.filter(Boolean).sort((x, y) => y!.buf.byteLength - x!.buf.byteLength)[0];
+  if (best) return new Response(best.buf, { headers: { "content-type": best.type, "x-source-url": best.c, "cache-control": "no-store" } });
   return json(502, `네이버 사진 서버가 응답하지 않았습니다 (${[...new Set(tried)].join(", ")}).`);
 }
