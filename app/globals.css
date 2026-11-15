@@ -210,8 +210,9 @@ button,input{font:inherit;color:inherit}
 .p-body{--ph-max:1040px}
 .p-photo{margin:36px 0;position:relative;left:50%;width:min(var(--ph-max),calc(100vw - 32px));transform:translateX(-50%)}
 .p-photo img{width:100%;height:auto;border-radius:10px;display:block}
-.p-photo.tall{width:min(calc(var(--ph-max) * .66),calc(100vw - 32px))}
-.p-photo.tall img{width:auto;max-width:100%;max-height:88vh;margin:0 auto}
+/* 세로 사진도 가로 사진과 같은 폭으로 */
+.p-photo.tall{width:min(var(--ph-max),calc(100vw - 32px))}
+.p-photo.tall img{width:100%;height:auto}
 .p-photo figcaption{margin-top:8px;text-align:center;font:400 13px var(--ui);color:var(--mute)}
 .p-gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;margin:28px 0}
 .p-gallery img{width:100%;height:100%;object-fit:cover;border-radius:8px}
@@ -361,7 +362,7 @@ button,input{font:inherit;color:inherit}
 .imp-preview{padding-bottom:80px;overflow-x:clip}
 .imp-preview .p-head{padding-top:70px}
 .imp-preview .p-photo{left:auto;transform:none;width:100%}
-.imp-preview .p-photo.tall{width:66%;margin-left:auto;margin-right:auto}
+.imp-preview .p-photo.tall{width:100%}
 .p-edit{position:relative;border-radius:12px;outline:1px dashed transparent;outline-offset:6px;transition:outline-color .2s}
 .p-edit:hover,.p-edit:focus-within{outline-color:var(--line)}
 .p-tools{position:sticky;bottom:12px;z-index:5}
