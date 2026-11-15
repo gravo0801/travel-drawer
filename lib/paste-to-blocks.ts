@@ -3,7 +3,7 @@
  * 붙여넣은 내용, 또는 네이버 글 화면(HTML) → 글 문단과 사진 목록.
  * 문서 순서대로 문단과 사진을 읽고, 스티커·아이콘·편집기 안내 글자는 건너뜁니다.
  */
-export type PastePart = { type: "text"; text: string } | { type: "img"; src: string } | { type: "file"; file: File };
+export type PastePart = { type: "text"; text: string } | { type: "img"; src: string } | { type: "file"; file: File } | { type: "missing" };
 export type Pasted = { title?: string; postedAt?: string; parts: PastePart[] };
 
 const SKIP_IMG = /storep-phinf|ssl\.pstatic\.net\/static|editor-static|\/sticker|emoticon|blank\.gif|spc\.gif|profile|favicon/i;
@@ -35,7 +35,13 @@ export function parseHtml(html: string, plain = "", files: File[] = []): Pasted 
     if (el.tagName === "IMG") {
       const src = imgSrc(el);
       const w = Number(el.getAttribute("width") || el.getAttribute("data-width") || 0);
-      if (!src || SKIP_IMG.test(src) || (w && w < 120)) return;
+      if (src && SKIP_IMG.test(src)) return;
+      if (w && w < 120) return;
+      // 화면에 아직 안 불러온 사진(빈 자리)은 자리만 표시
+      if (!src || src.startsWith("blob:") || (src.startsWith("data:") && src.length < 2000)) {
+        if (el.closest(".se-component, .se-module-image, .se-image")) parts.push({ type: "missing" });
+        return;
+      }
       if (parts.some((p) => p.type === "img" && p.src === src)) return;
       parts.push({ type: "img", src });
       return;
