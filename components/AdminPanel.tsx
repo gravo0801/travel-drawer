@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut, type User } from "firebase/auth";
+import { getAuth, onAuthStateChanged, signOut, type User } from "firebase/auth";
+import { login as doLogin } from "@/lib/login";
 import { firebaseApp } from "@/lib/firebase";
 
 export default function AdminPanel() {
@@ -19,11 +20,8 @@ export default function AdminPanel() {
   async function login() {
     if (!app) return;
     setErr("");
-    try { await signInWithPopup(getAuth(app), new GoogleAuthProvider()); }
-    catch (e) {
-      const code = (e as { code?: string }).code ?? "";
-      if (code !== "auth/popup-closed-by-user" && code !== "auth/cancelled-popup-request") setErr("로그인에 실패했습니다. (" + code + ")");
-    }
+    const e = await doLogin(app);
+    if (e) setErr(e);
   }
   async function copyUid() {
     if (!user) return;
