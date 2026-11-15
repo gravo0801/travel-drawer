@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { Post } from "@/lib/types";
 import { countryEn } from "@/lib/countries";
+import { splitPost, embedSrc, type MapInfo } from "@/lib/maps";
 
 const fmt = (d: string) => (d ?? "").replace(/-/g, ".");
 
@@ -11,6 +12,7 @@ const fmt = (d: string) => (d ?? "").replace(/-/g, ".");
  */
 export default function PostView({ post, tools, textView }: { post: Post; tools?: (k: number) => ReactNode; textView?: (k: number) => ReactNode }) {
   const photos = (post.blocks ?? []).reduce((n, b) => n + (b.type === "photo" ? 1 : b.type === "gallery" ? b.photos.length : 0), 0);
+  const pieces = splitPost((post.blocks ?? []).map((b) => (b.type === "text" ? b.text : null)));
   const wrap = (k: number, el: ReactNode) => (tools ? <div className="p-edit" key={k}>{el}<div className="p-tools">{tools(k)}</div></div> : el);
   return (
     <>
@@ -32,7 +34,9 @@ export default function PostView({ post, tools, textView }: { post: Post; tools?
       <div className="p-body">
         {(post.blocks ?? []).map((b, k) => {
           if (b.type === "text" && textView?.(k)) return wrap(k, <div className="p-text" key={k}>{textView(k)}</div>);
-          if (b.type === "text") return wrap(k, <div className="p-text" key={k}>{b.text.split(/\n{2,}/).map((para, j) => <p key={j}>{para}</p>)}</div>);
+          if (b.type === "text") return wrap(k, <div className="p-text" key={k}>{(pieces[k] ?? []).map((pc, j) => pc.kind === "p" ? <p key={j}>{pc.text}</p>
+            : pc.kind === "place" ? <p className="p-place" key={j}>📍 {pc.text}</p>
+            : <MiniMap key={j} map={pc.map} label={pc.label} />)}</div>);
           if (b.type === "photo") return wrap(k,
             <figure className={"p-photo" + (b.h > b.w ? " tall" : "")} key={k}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -49,5 +53,21 @@ export default function PostView({ post, tools, textView }: { post: Post; tools?
         {post.naverUrl && <p className="p-src">이 글은 <a href={post.naverUrl} target="_blank" rel="noreferrer">네이버 블로그 원문</a>에서 옮겨 왔습니다.</p>}
       </div>
     </>
+  );
+}
+
+/** 구글 지도 링크 바로 아래 미니 지도 */
+function MiniMap({ map, label }: { map: MapInfo; label?: string }) {
+  const title = map.name ?? label?.split(" · ")[0] ?? "지도";
+  return (
+    <figure className="p-map">
+      {(map.lat !== undefined || map.name) && (
+        <iframe src={embedSrc(map)} title={`${title} 위치 지도`} loading="lazy" referrerPolicy="no-referrer-when-downgrade" allowFullScreen />
+      )}
+      <figcaption>
+        <a href={map.url} target="_blank" rel="noreferrer">📍 {title}<span>구글 지도에서 열기 ↗</span></a>
+        {label && <small>{label}</small>}
+      </figcaption>
+    </figure>
   );
 }
