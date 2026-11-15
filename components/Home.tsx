@@ -64,7 +64,7 @@ export default function Home({ recent, archive, countries }: { recent: PostSumma
               {/* eslint-disable-next-line @next/next/no-img-element */}
               {p.cover ? <img src={p.cover} alt={p.title} loading="lazy" /> : <span className="ph" />}
               <span className="arrow" aria-hidden="true">&#8599;</span>
-              <span className="tx"><small>{p.trip.date.slice(0, 4)} · {countryEn(p.trip.country)} · {p.trip.city}</small><strong>{p.title}</strong><span className="n">사진 {p.photoCount}장</span></span>
+              <span className="tx"><small>{[p.trip.date.slice(0, 4), countryEn(p.trip.country), p.trip.city.endsWith("미정") ? "" : p.trip.city].filter(Boolean).join(" · ")}</small><strong>{p.title}</strong><span className="n">사진 {p.photoCount}장</span></span>
             </Link>
           ))}
         </div>

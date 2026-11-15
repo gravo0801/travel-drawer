@@ -11,7 +11,7 @@ function groupBy<T>(arr: T[], fn: (x: T) => string): G<T>[] {
   arr.forEach((x) => { const k = fn(x); if (!m.has(k)) m.set(k, []); m.get(k)!.push(x); });
   return [...m].map(([k, a]) => ({ k, a }));
 }
-const yearOf = (p: PostSummary) => p.trip.date.slice(0, 4);
+const yearOf = (p: PostSummary) => p.trip.date.slice(0, 4) || "날짜 미정";
 const md = (p: PostSummary) => (p.trip.date.length >= 7 ? p.trip.date.slice(5).replace("-", ".") : "");
 
 export default function Archive({ posts }: { posts: PostSummary[] }) {

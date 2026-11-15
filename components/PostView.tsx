@@ -18,9 +18,15 @@ export default function PostView({ post, tools, textView }: { post: Post; tools?
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {post.cover && <img className="p-bg" src={post.cover} alt="" aria-hidden="true" />}
         <div className="p-head-in">
-          <p className="p-trip"><span>{post.trip.date.slice(0, 4) || "연도"}</span><span>{post.trip.country || "나라"} <em>{countryEn(post.trip.country)}</em></span><span>{post.trip.city || "도시"}</span></p>
-          <h1>{post.title}</h1>
-          <p className="p-meta">여행 {fmt(post.trip.date)} · 작성 {fmt(post.publishedAt)} · 사진 {photos}장{post.series ? ` · ${post.series}` : ""}</p>
+          {(post.trip.date || post.trip.country || post.trip.city) && (
+            <p className="p-trip">
+              {post.trip.date && <span>{post.trip.date.slice(0, 4)}</span>}
+              {post.trip.country && <span>{post.trip.country} <em>{countryEn(post.trip.country)}</em></span>}
+              {post.trip.city && <span>{post.trip.city}</span>}
+            </p>
+          )}
+          {post.title && <h1>{post.title}</h1>}
+          <p className="p-meta">{[post.trip.date && `여행 ${fmt(post.trip.date)}`, post.publishedAt && `작성 ${fmt(post.publishedAt)}`, `사진 ${photos}장`, post.series].filter(Boolean).join(" · ")}</p>
         </div>
       </header>
       <div className="p-body">

@@ -18,8 +18,7 @@ export async function POST(req: Request) {
   const conflicts: string[] = [];
   for (const { post, photos, overwrite } of items) {
     if (!/^[\w-]+$/.test(post.id)) return json(400, `글 번호가 올바르지 않습니다: ${post.id}`);
-    if (!post.title?.trim() || !post.trip?.date || !post.trip.country || !post.trip.city)
-      return json(400, `"${post.title || post.id}": 제목과 여행 날짜·나라·도시를 채워 주세요.`);
+    post.trip = { date: post.trip?.date ?? "", country: post.trip?.country ?? "", city: post.trip?.city ?? "" }; // 비워 둔 칸은 빈칸으로 저장
     if (!overwrite && (await postExists(post.id))) { conflicts.push(post.id); continue; }
     for (const ph of photos) {
       if (!/^img-\d{3}\.jpg$/.test(ph.file) || !/^[0-9a-f]{40}$/.test(ph.sha)) return json(400, "사진 정보가 올바르지 않습니다.");

@@ -11,8 +11,11 @@ function readAll(): Post[] {
     .map((d) => JSON.parse(fs.readFileSync(path.join(DIR, d, "post.json"), "utf8")) as Post);
 }
 
+/** 비워 둔 칸은 저장은 빈칸 그대로, 목록에서는 "미정"으로 묶어 보여 줌 */
 function summarize(p: Post): PostSummary {
   const { blocks, ...rest } = p;
+  rest.title = p.title?.trim() || "(제목 없음)";
+  rest.trip = { date: p.trip?.date ?? "", country: p.trip?.country?.trim() || "나라 미정", city: p.trip?.city?.trim() || "도시 미정" };
   const photos = (blocks ?? []).reduce((n, b) => n + (b.type === "photo" ? 1 : b.type === "gallery" ? b.photos.length : 0), 0);
   const first = (blocks ?? []).find((b) => b.type === "text");
   const excerpt = first && first.type === "text" ? first.text.replace(/\s+/g, " ").slice(0, 120) : undefined;
@@ -33,5 +36,7 @@ export function getArchive(): PostSummary[] {
 export function getPost(id: string): Post | null {
   const f = path.join(DIR, id, "post.json");
   if (!/^[\w-]+$/.test(id) || !fs.existsSync(f)) return null;
-  return JSON.parse(fs.readFileSync(f, "utf8")) as Post;
+  const p = JSON.parse(fs.readFileSync(f, "utf8")) as Post;
+  p.trip = { date: p.trip?.date ?? "", country: p.trip?.country ?? "", city: p.trip?.city ?? "" };
+  return p;
 }
