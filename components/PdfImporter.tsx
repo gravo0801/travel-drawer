@@ -82,9 +82,6 @@ function normDate(v: string): string {
   return [m[1], m[2].padStart(2, "0"), m[3] && m[3].padStart(2, "0")].filter(Boolean).join("-");
 }
 const dateOk = (v: string) => /^\d{4}(-\d{2}(-\d{2})?)?$/.test(v.trim());
-function missing(m: Meta): string[] {
-  return [!m.title.trim() && "제목", !dateOk(m.date) && "여행 날짜", !m.country.trim() && "나라", !m.city.trim() && "도시"].filter(Boolean) as string[];
-}
 
 /** 사진 90도 회전 (시계 방향) */
 async function rotate(p: { blob: Blob }): Promise<{ blob: Blob; w: number; h: number }> {
@@ -344,8 +341,6 @@ export default function PdfImporter() {
 
   async function publish(targets: Draft[]) {
     if (!targets.length) return;
-    const lack = targets.map((t) => ({ t, m: missing(t.meta) })).find((x) => x.m.length);
-    if (lack) { setCur(lack.t.id); setMsg({ ok: false, text: `"${lack.t.meta.title || "새 글"}": ${lack.m.join(", ")} 칸이 비어 있습니다. 위쪽 빨간 칸을 채운 뒤 다시 게시해 주세요.` }); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
     const bad = targets.find((t) => t.blocks.some((b) => b.type === "text" && b.text.includes("⚠ 사진을 가져오지 못한 자리")));
     if (bad) { setMsg({ ok: false, text: `"${bad.meta.title || "새 글"}"에 사진을 못 가져온 자리(⚠)가 남아 있습니다. 사진을 넣고 그 문단을 지워 주세요.` }); return; }
     setMsg(null);
@@ -540,11 +535,11 @@ export default function PdfImporter() {
           <form className="meta" onSubmit={(e) => e.preventDefault()}>
             {d.error && <p className="bad wide">{d.error}</p>}
             {d.warnings.map((w) => <p key={w} className="warn wide">{w}</p>)}
-            <label className={"wide" + (d.meta.title.trim() ? "" : " need")}>제목 <small>필수</small><input value={d.meta.title} placeholder="제목을 입력하세요" onChange={(e) => setMeta({ title: e.target.value })} /></label>
-            <label className={dateOk(d.meta.date) ? "" : "need"}>여행 날짜 <small>필수 · 예: 2026-01-23 또는 2026-01</small><input value={d.meta.date} placeholder="비어 있음" inputMode="numeric" onChange={(e) => setMeta({ date: normDate(e.target.value) })} /></label>
-            <label className={d.meta.country.trim() ? "" : "need"}>나라 <small>필수</small><input value={d.meta.country} placeholder="비어 있음" onChange={(e) => setMeta({ country: e.target.value })} /></label>
-            <label className={d.meta.city.trim() ? "" : "need"}>도시 <small>필수</small><input value={d.meta.city} placeholder="비어 있음" onChange={(e) => setMeta({ city: e.target.value })} /></label>
-            <label>여행 묶음 <small>선택 · 예: 2026.01 방콕</small><input value={d.meta.series} placeholder="비워도 됨" onChange={(e) => setMeta({ series: e.target.value })} /></label>
+            <label className="wide">제목<input value={d.meta.title} placeholder="비어 있음" onChange={(e) => setMeta({ title: e.target.value })} /></label>
+            <label className={!d.meta.date || dateOk(d.meta.date) ? "" : "need"}>여행 날짜 <small>예: 2026-01-23 또는 2026-01</small><input value={d.meta.date} placeholder="비어 있음" inputMode="numeric" onChange={(e) => setMeta({ date: normDate(e.target.value) })} /></label>
+            <label>나라<input value={d.meta.country} placeholder="비어 있음" onChange={(e) => setMeta({ country: e.target.value })} /></label>
+            <label>도시<input value={d.meta.city} placeholder="비어 있음" onChange={(e) => setMeta({ city: e.target.value })} /></label>
+            <label>여행 묶음 <small>예: 2026.01 방콕</small><input value={d.meta.series} placeholder="비워도 됨" onChange={(e) => setMeta({ series: e.target.value })} /></label>
             <label>분류<input value={d.meta.category} onChange={(e) => setMeta({ category: e.target.value })} /></label>
             <label>작성일<input type="date" value={d.meta.publishedAt} onChange={(e) => setMeta({ publishedAt: e.target.value })} /></label>
             <label className="wide">태그 <small>띄어쓰기로 구분</small><input value={d.meta.hashtags} onChange={(e) => setMeta({ hashtags: e.target.value })} /></label>
