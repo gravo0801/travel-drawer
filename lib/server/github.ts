@@ -37,7 +37,21 @@ export async function postExists(id: string): Promise<boolean> {
   return r !== null;
 }
 
-export async function commitFiles(files: { path: string; sha?: string; content?: string }[], message: string): Promise<string> {
+/** 저장소의 최신 post.json (배포 전 수정분 포함) */
+export async function readPost(id: string): Promise<unknown | null> {
+  const { repo, branch } = cfg();
+  const r = await gh<{ content: string }>(`/repos/${repo}/contents/content/posts/${id}/post.json?ref=${branch}`, { allow404: true });
+  return r ? JSON.parse(Buffer.from(r.content, "base64").toString("utf8")) : null;
+}
+
+/** 글 사진 폴더의 파일 이름들 */
+export async function listMedia(id: string): Promise<string[]> {
+  const { repo, branch } = cfg();
+  const r = await gh<{ name: string; type: string }[]>(`/repos/${repo}/contents/public/media/posts/${id}?ref=${branch}`, { allow404: true });
+  return (r ?? []).filter((f) => f.type === "file").map((f) => f.name);
+}
+
+export async function commitFiles(files: { path: string; sha?: string | null; content?: string }[], message: string): Promise<string> {
   const { repo, branch } = cfg();
   const ref = await gh<{ object: { sha: string } }>(`/repos/${repo}/git/ref/heads/${branch}`);
   const head = ref!.object.sha;
@@ -46,7 +60,7 @@ export async function commitFiles(files: { path: string; sha?: string; content?:
     method: "POST",
     body: JSON.stringify({
       base_tree: commit!.tree.sha,
-      tree: files.map((f) => ({ path: f.path, mode: "100644", type: "blob", ...(f.sha ? { sha: f.sha } : { content: f.content }) })),
+      tree: files.map((f) => ({ path: f.path, mode: "100644", type: "blob", ...(f.sha !== undefined ? { sha: f.sha } : { content: f.content }) })),
     }),
   });
   const next = await gh<{ sha: string }>(`/repos/${repo}/git/commits`, {
