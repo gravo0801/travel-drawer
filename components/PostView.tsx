@@ -9,7 +9,7 @@ const fmt = (d: string) => (d ?? "").replace(/-/g, ".");
  * 게시 전에 본 모습 그대로 게시됩니다.
  * tools: 미리보기에서 블록마다 붙일 편집 단추(실제 글 화면에서는 없음).
  */
-export default function PostView({ post, tools }: { post: Post; tools?: (k: number) => ReactNode }) {
+export default function PostView({ post, tools, textView }: { post: Post; tools?: (k: number) => ReactNode; textView?: (k: number) => ReactNode }) {
   const photos = (post.blocks ?? []).reduce((n, b) => n + (b.type === "photo" ? 1 : b.type === "gallery" ? b.photos.length : 0), 0);
   const wrap = (k: number, el: ReactNode) => (tools ? <div className="p-edit" key={k}>{el}<div className="p-tools">{tools(k)}</div></div> : el);
   return (
@@ -25,6 +25,7 @@ export default function PostView({ post, tools }: { post: Post; tools?: (k: numb
       </header>
       <div className="p-body">
         {(post.blocks ?? []).map((b, k) => {
+          if (b.type === "text" && textView?.(k)) return wrap(k, <div className="p-text" key={k}>{textView(k)}</div>);
           if (b.type === "text") return wrap(k, <div className="p-text" key={k}>{b.text.split(/\n{2,}/).map((para, j) => <p key={j}>{para}</p>)}</div>);
           if (b.type === "photo") return wrap(k,
             <figure className={"p-photo" + (b.h > b.w ? " tall" : "")} key={k}>
