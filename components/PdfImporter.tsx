@@ -4,13 +4,14 @@ import Link from "next/link";
 import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, type User } from "firebase/auth";
 import { firebaseApp } from "@/lib/firebase";
 import { extractPdf } from "@/lib/pdf-extract";
+import { pdfToPost } from "@/lib/pdf-to-post";
 import type { Block, Post } from "@/lib/types";
 import PostView from "./PostView";
 
 /* ---------- 상태 ---------- */
 type Ph = { key: string; blob: Blob; url: string; w: number; h: number };
 type DBlock = { type: "text"; text: string } | { type: "photo"; ph: string } | { type: "gallery"; phs: string[] };
-type Status = "queued" | "extract" | "analyze" | "ready" | "error" | "publishing" | "done";
+type Status = "queued" | "extract" | "ready" | "error" | "publishing" | "done";
 type Meta = {
   postId: string; title: string; date: string; country: string; city: string; series: string; category: string;
   hashtags: string; summary: string; places: string[]; cover?: string; publishedAt: string; naverUrl?: string;
@@ -22,7 +23,7 @@ type Draft = {
 };
 
 const STATUS: Record<Status, string> = {
-  queued: "대기 중", extract: "PDF 읽는 중", analyze: "AI 분석 중", ready: "확인 대기", error: "오류", publishing: "게시 중", done: "게시 완료",
+  queued: "대기 중", extract: "PDF 읽는 중", ready: "확인 대기", error: "오류", publishing: "게시 중", done: "게시 완료",
 };
 const today = () => new Date().toISOString().slice(0, 10);
 const pad = (n: number) => String(n).padStart(3, "0");
@@ -145,45 +146,21 @@ export default function PdfImporter() {
     });
   }
 
-  /** 새 글: 쓴 내용으로 AI가 제목·날짜·나라·도시·태그·요약만 채움 (본문은 그대로) */
-  async function aiFill(dr: Draft) {
-    const keys: string[] = [];
-    const parts = dr.blocks.map((b) => {
-      if (b.type === "text") return b.text;
-      const ks = b.type === "photo" ? [b.ph] : b.phs;
-      return ks.map((k) => { keys.push(k); return `[[사진 ${keys.length}]]`; }).join("\n");
-    });
-    const manuscript = [dr.meta.title && `제목: ${dr.meta.title}`, ...parts].filter(Boolean).join("\n\n");
-    if (!manuscript.replace(/\[\[사진 \d+\]\]|\s/g, "")) { setMsg({ ok: false, text: "본문을 조금 쓴 뒤에 눌러 주세요." }); return; }
-    patch(dr.id, () => ({ status: "analyze", step: "AI가 제목·태그를 채우는 중…", error: undefined }));
-    try {
-      const a = await api("/api/admin/analyze", { manuscript, photoCount: keys.length, hints: { hashtags: [] } });
-      patch(dr.id, (x) => ({
-        status: "ready", step: "",
-        meta: {
-          ...x.meta, title: x.meta.title || a.title, date: x.meta.date || a.trip.date, country: x.meta.country || a.trip.country, city: x.meta.city || a.trip.city,
-          series: x.meta.series || (a.series ?? ""), category: x.meta.category || (a.category ?? ""), hashtags: x.meta.hashtags || (a.hashtags as string[]).join(" "),
-          summary: x.meta.summary || (a.summary ?? ""), places: a.places ?? [], cover: x.meta.cover ?? keys[a.cover - 1],
-        },
-      }));
-    } catch (e) { patch(dr.id, () => ({ status: "ready", step: "", error: (e as Error).message })); }
-  }
-
-  /** 분석: 추출된 원고를 AI에 보내고 결과를 편집 상태로 옮김 */
-  const analyze = useCallback(async (d: Draft, photoKeys: string[]) => {
-    patch(d.id, () => ({ status: "analyze", step: "AI가 글을 읽고 정리하는 중…", error: undefined }));
-    const a = await api("/api/admin/analyze", { manuscript: d.manuscript, photoCount: photoKeys.length, hints: d.hints, fileName: d.file?.name });
+  /** 정리: 추출된 원고를 규칙으로 글 형식으로 (AI 없음, 비용 0원) */
+  const arrange = useCallback((d: Draft, photoKeys: string[]) => {
+    const r = pdfToPost(d.manuscript ?? "", d.hints ?? { hashtags: [] }, d.file?.name);
     const key = (n: number) => photoKeys[n - 1];
-    const blocks: DBlock[] = (a.blocks as ({ type: "text"; text: string } | { type: "photo"; ref: number } | { type: "gallery"; refs: number[] })[]).map((b) =>
-      b.type === "text" ? b : b.type === "photo" ? { type: "photo", ph: key(b.ref) } : { type: "gallery", phs: b.refs.map(key) });
+    const used = new Set<number>();
+    const blocks: DBlock[] = r.blocks.flatMap((b): DBlock[] => {
+      if (b.type === "text") return [b];
+      if (!key(b.ref) || used.has(b.ref)) return [];
+      used.add(b.ref); return [{ type: "photo", ph: key(b.ref) }];
+    });
     patch(d.id, (x) => ({
-      status: "ready", step: "", blocks, warnings: a.warnings ?? [],
-      meta: {
-        ...x.meta, title: a.title, date: a.trip.date, country: a.trip.country, city: a.trip.city, series: a.series ?? "", category: a.category ?? "",
-        hashtags: (a.hashtags as string[]).join(" "), summary: a.summary ?? "", places: a.places ?? [], cover: key(a.cover),
-      },
+      status: "ready", step: "", blocks, warnings: r.warnings,
+      meta: { ...x.meta, title: r.title, date: r.date, country: r.country, city: r.city, series: r.series, category: r.category, hashtags: r.hashtags.join(" "), cover: photoKeys[0] },
     }));
-  }, [api, patch]);
+  }, [patch]);
 
   // 대기 중인 PDF를 한 편씩 차례로 처리
   useEffect(() => {
@@ -201,18 +178,12 @@ export default function PdfImporter() {
         const withEx: Draft = { ...d, photos, manuscript: ex.manuscript, hints: ex.hints };
         patch(d.id, (x) => ({ photos, manuscript: ex.manuscript, hints: ex.hints, meta: { ...x.meta, postId, publishedAt: ex.hints.postedAt ?? today(), naverUrl: ex.hints.naverUrl } }));
         if (!ex.manuscript.trim() && !keys.length) throw new Error("PDF에서 글자와 사진을 찾지 못했습니다. 스캔한 이미지 PDF는 아직 지원하지 않습니다.");
-        await analyze(withEx, keys);
+        arrange(withEx, keys);
       } catch (e) {
         patch(d.id, () => ({ status: "error", step: "", error: (e as Error).message }));
       } finally { busy.current = false; setDrafts((ds) => [...ds]); }
     })();
-  }, [drafts, user, patch, analyze]);
-
-  async function reanalyze(d: Draft) {
-    // 현재 사진 순서를 [[사진 N]]으로 다시 매겨 원고를 다시 분석
-    const keys = Object.keys(d.photos);
-    try { await analyze(d, keys); } catch (e) { patch(d.id, () => ({ status: "error", error: (e as Error).message })); }
-  }
+  }, [drafts, user, patch, arrange]);
 
   async function publish(targets: Draft[]) {
     if (!targets.length) return;
@@ -313,7 +284,7 @@ export default function PdfImporter() {
   );
 
   const ready_ = drafts.filter((x) => x.status === "ready" && x.selected);
-  const preview = d && (d.status === "ready" || d.status === "publishing" || d.status === "done" || (d.kind === "new" && d.status === "analyze")) ? build(d, true).post : null;
+  const preview = d && (d.status === "ready" || d.status === "publishing" || d.status === "done" || false) ? build(d, true).post : null;
 
   return (
     <div className="imp">
@@ -321,7 +292,7 @@ export default function PdfImporter() {
         <h1>글쓰기</h1>
         <div className="imp-new">
           <button type="button" onClick={newPost}>✎ 새 글 쓰기<span>직접 쓰고 사진 넣기</span></button>
-          <button type="button" onClick={() => fileIn.current?.click()}>⇪ PDF 가져오기<span>AI가 정리</span></button>
+          <button type="button" onClick={() => fileIn.current?.click()}>⇪ PDF 가져오기<span>자동 정리</span></button>
         </div>
         <div className={"drop" + (over ? " over" : "")} role="button" tabIndex={0}
           onClick={() => fileIn.current?.click()} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && fileIn.current?.click()}
@@ -353,15 +324,15 @@ export default function PdfImporter() {
           <p>{msg.text}</p>
           {msg.links?.map((l) => <Link key={l.id} href={`/posts/${l.id}`}>{l.title} →</Link>)}
         </div>}
-        <p className="imp-help">PDF의 글자와 사진을 읽어 AI가 제목·여행 날짜·나라·도시·태그를 채우고, 이 블로그 글 모양으로 정리합니다. 글쓴이의 문장은 바꾸지 않습니다.<br />네이버 PDF 사진은 가로 743px이라 화질이 낮으니, 중요한 사진은 &lsquo;원본으로 교체&rsquo;로 구글 포토 원본을 넣어 주세요.</p>
+        <p className="imp-help">PDF의 글자와 사진을 순서대로 읽어 제목·여행 날짜·나라·도시·태그를 채우고 이 블로그 글 모양으로 정리합니다(AI 미사용, 무료). 빈 칸은 직접 채워 주세요.<br />네이버 PDF 사진은 가로 743px이라 화질이 낮으니, 중요한 사진은 &lsquo;원본으로 교체&rsquo;로 구글 포토 원본을 넣어 주세요.</p>
         <Link className="imp-back" href="/admin">← 관리자</Link>
       </aside>
 
       <section className="imp-main">
         {!d && <div className="imp-empty"><p>왼쪽에서 <b>새 글 쓰기</b>를 누르거나 PDF를 올리세요.<br />여기에서 게시될 모습 그대로 보면서 고칠 수 있습니다.</p></div>}
-        {d && (d.status === "queued" || d.status === "extract" || (d.status === "analyze" && d.kind === "pdf")) && <div className="imp-empty"><p className="spin">{d.step || STATUS[d.status]}</p></div>}
+        {d && (d.status === "queued" || d.status === "extract" || false) && <div className="imp-empty"><p className="spin">{d.step || STATUS[d.status]}</p></div>}
         {d && d.status === "error" && <div className="imp-empty"><p className="bad">{d.error}</p>
-          {d.manuscript !== undefined && <button className="btn" type="button" onClick={() => reanalyze(d)}>다시 분석</button>}</div>}
+</div>}
         {d && preview && <>
           <form className="meta" onSubmit={(e) => e.preventDefault()}>
             {d.error && <p className="bad wide">{d.error}</p>}
@@ -379,9 +350,6 @@ export default function PdfImporter() {
             <div className="wide row">
               <label className="chk"><input type="checkbox" checked={d.overwrite} onChange={(e) => patch(d.id, () => ({ overwrite: e.target.checked }))} />기존 글 덮어쓰기 <small>(글 번호 {d.meta.postId})</small></label>
               <button className="btn ghost" type="button" onClick={() => pickPhotos(-1)} disabled={d.status !== "ready"}>사진 추가</button>
-              {d.kind === "new"
-                ? <button className="btn ghost" type="button" onClick={() => aiFill(d)} disabled={d.status !== "ready"}>AI로 제목·태그 채우기</button>
-                : <button className="btn ghost" type="button" onClick={() => reanalyze(d)} disabled={d.status !== "ready"}>AI 다시 분석</button>}
               <button className="btn" type="button" onClick={() => publish([d])} disabled={d.status !== "ready"}>이 글만 게시</button>
             </div>
           </form>
