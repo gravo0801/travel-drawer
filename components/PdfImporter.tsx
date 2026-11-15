@@ -6,7 +6,7 @@ import { firebaseApp } from "@/lib/firebase";
 import { extractPdf } from "@/lib/pdf-extract";
 import { pdfToPost, guessTrip } from "@/lib/pdf-to-post";
 import { parsePaste, parseHtml, hasImages, naverPostId, type Pasted } from "@/lib/paste-to-blocks";
-import type { Block, Post } from "@/lib/types";
+import type { Block, Photo, Post } from "@/lib/types";
 import PostView from "./PostView";
 
 /* ---------- 상태 ---------- */
@@ -18,7 +18,7 @@ type Meta = {
   hashtags: string; summary: string; places: string[]; cover?: string; publishedAt: string; naverUrl?: string;
 };
 type Draft = {
-  id: string; kind: "pdf" | "new"; file?: File; status: Status; step: string; error?: string; warnings: string[];
+  id: string; kind: "pdf" | "new"; file?: File; orig?: Post; status: Status; step: string; error?: string; warnings: string[];
   photos: Record<string, Ph>; blocks: DBlock[]; meta: Meta; selected: boolean; overwrite: boolean;
   manuscript?: string; hints?: { naverUrl?: string; postedAt?: string; hashtags: string[] };
 };
@@ -53,7 +53,7 @@ function build(d: Draft, preview: boolean): { post: Post; files: { file: string;
     publishedAt: m.publishedAt, series: m.series.trim() || (m.date.length >= 7 && m.city.trim() ? `${m.date.slice(0, 4)}.${m.date.slice(5, 7)} ${m.city.trim()}` : undefined), category: m.category.trim() || null,
     hashtags: m.hashtags.split(/[\s,#]+/).map((t) => t.trim()).filter(Boolean),
     summary: m.summary.trim() || undefined, places: m.places.length ? m.places : undefined,
-    cover, blocks, naverUrl: m.naverUrl ?? null, source: d.kind === "new" ? "editor" : m.naverUrl ? "naver" : "pdf", photoCount: files.length,
+    cover, blocks, naverUrl: m.naverUrl ?? null, source: d.orig?.source ?? (d.kind === "new" ? "editor" : m.naverUrl ? "naver" : "pdf"), photoCount: files.length,
   };
   return { post, files };
 }
@@ -109,6 +109,54 @@ export default function PdfImporter() {
   const [cfg, setCfg] = useState<{ firebase: boolean; adminUids: boolean; githubToken: boolean } | null>(null);
   const [uidCopied, setUidCopied] = useState(false);
   useEffect(() => { fetch("/api/admin/status").then((r) => r.json()).then(setCfg).catch(() => {}); }, []);
+
+  // ?edit=글번호 로 들어오면 그 글을 불러와 수정
+  const editLoaded = useRef(false);
+  useEffect(() => {
+    const id = new URLSearchParams(location.search).get("edit");
+    if (!id || !user || editLoaded.current) return;
+    editLoaded.current = true;
+    (async () => {
+      setPasting("수정할 글을 불러오는 중…");
+      try {
+        const { post } = (await api("/api/admin/post", { id })) as { post: Post };
+        const photos: Record<string, Ph> = {};
+        const bySrc = new Map<string, string>();
+        const all: Photo[] = (post.blocks ?? []).flatMap((b) => (b.type === "photo" ? [b] : b.type === "gallery" ? b.photos : []));
+        let done = 0;
+        for (const ph of all) {
+          if (bySrc.has(ph.src)) continue;
+          setPasting(`수정할 글을 불러오는 중… 사진 ${++done}/${all.length}`);
+          try {
+            const r = await fetch(ph.src, { cache: "no-store" });
+            if (!r.ok) throw new Error();
+            const blob = await r.blob();
+            const key = crypto.randomUUID();
+            photos[key] = { key, blob, url: URL.createObjectURL(blob), w: ph.w, h: ph.h };
+            bySrc.set(ph.src, key);
+          } catch { /* 아직 배포 전인 사진 등 */ }
+        }
+        const blocks: DBlock[] = (post.blocks ?? []).flatMap((b): DBlock[] => {
+          if (b.type === "text") return [{ type: "text", text: b.text }];
+          if (b.type === "photo") return bySrc.get(b.src) ? [{ type: "photo", ph: bySrc.get(b.src)! }] : [{ type: "text", text: FAIL }];
+          const phs = b.photos.map((p) => bySrc.get(p.src)).filter(Boolean) as string[];
+          return phs.length ? [{ type: "gallery", phs }] : [];
+        });
+        const did = crypto.randomUUID();
+        setDrafts((ds) => [...ds, {
+          id: did, kind: "new", orig: post, status: "ready", step: "", warnings: [], photos, blocks: blocks.length ? blocks : [{ type: "text", text: "" }], selected: true, overwrite: true,
+          meta: {
+            postId: post.id, title: post.title ?? "", date: post.trip?.date ?? "", country: post.trip?.country ?? "", city: post.trip?.city ?? "",
+            series: post.series ?? "", category: post.category ?? "", hashtags: (post.hashtags ?? []).join(" "), summary: post.summary ?? "",
+            places: post.places ?? [], cover: post.cover ? bySrc.get(post.cover) : undefined, publishedAt: post.publishedAt ?? today(), naverUrl: post.naverUrl ?? undefined,
+          },
+        }]);
+        setCur(did);
+        setMsg({ ok: true, text: "글을 불러왔습니다. 고친 뒤 [수정 내용 게시]를 누르세요." });
+      } catch (e) { setMsg({ ok: false, text: `글을 불러오지 못했습니다: ${(e as Error).message}` }); }
+      setPasting("");
+    })();
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
   const busy = useRef(false);
   const fileIn = useRef<HTMLInputElement>(null);
   const replaceIn = useRef<HTMLInputElement>(null);
@@ -488,7 +536,7 @@ export default function PdfImporter() {
             <li key={x.id} className={x.id === cur ? "on" : ""}>
               {x.status === "ready" && <input type="checkbox" checked={x.selected} aria-label="게시할 글로 선택" onChange={(e) => patch(x.id, () => ({ selected: e.target.checked }))} />}
               <button type="button" onClick={() => { setCur(x.id); setEditing(null); }}>
-                <span className="q-t">{x.kind === "new" ? "✎ " : ""}{x.meta.title || "새 글"}</span>
+                <span className="q-t">{x.orig ? "[수정] " : x.kind === "new" ? "✎ " : ""}{x.meta.title || "새 글"}</span>
                 <span className={"q-s s-" + x.status}>{x.step || STATUS[x.status]}{x.status === "ready" && x.warnings.length ? " · 확인 필요" : ""}</span>
               </button>
             </li>
@@ -548,7 +596,7 @@ export default function PdfImporter() {
             <div className="wide row">
               <label className="chk"><input type="checkbox" checked={d.overwrite} onChange={(e) => patch(d.id, () => ({ overwrite: e.target.checked }))} />기존 글 덮어쓰기 <small>(글 번호 {d.meta.postId})</small></label>
               <button className="btn ghost" type="button" onClick={() => pickPhotos(-1)} disabled={d.status !== "ready"}>사진 추가</button>
-              <button className="btn" type="button" onClick={() => publish([d])} disabled={d.status !== "ready"}>이 글만 게시</button>
+              <button className="btn" type="button" onClick={() => publish([d])} disabled={d.status !== "ready"}>{d.orig ? "수정 내용 게시" : "이 글만 게시"}</button>
             </div>
           </form>
           <article className="post imp-preview" aria-label="게시 미리보기">

@@ -1,5 +1,5 @@
 import { requireAdmin, json } from "@/lib/server/auth";
-import { commitFiles, postExists } from "@/lib/server/github";
+import { commitFiles, postExists, listMedia } from "@/lib/server/github";
 import type { Post } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -14,7 +14,7 @@ export async function POST(req: Request) {
   const { items } = (await req.json()) as { items: Item[] };
   if (!items?.length) return json(400, "게시할 글이 없습니다.");
 
-  const files: { path: string; sha?: string; content?: string }[] = [];
+  const files: { path: string; sha?: string | null; content?: string }[] = [];
   const conflicts: string[] = [];
   for (const { post, photos, overwrite } of items) {
     if (!/^[\w-]+$/.test(post.id)) return json(400, `글 번호가 올바르지 않습니다: ${post.id}`);
@@ -25,6 +25,11 @@ export async function POST(req: Request) {
       files.push({ path: `public/media/posts/${post.id}/${ph.file}`, sha: ph.sha });
     }
     files.push({ path: `content/posts/${post.id}/post.json`, content: JSON.stringify(post, null, 1) + "\n" });
+    // 수정해서 다시 올릴 때: 이번에 쓰지 않는 예전 사진 파일은 지움
+    if (overwrite) {
+      const keep = new Set(photos.map((p) => p.file));
+      for (const name of await listMedia(post.id)) if (!keep.has(name)) files.push({ path: `public/media/posts/${post.id}/${name}`, sha: null });
+    }
   }
   if (conflicts.length) return Response.json({ error: "이미 같은 번호의 글이 있습니다.", conflicts }, { status: 409 });
 
