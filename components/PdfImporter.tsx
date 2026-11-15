@@ -200,19 +200,35 @@ export default function PdfImporter() {
       (p.text.match(/#[^\s#]+/g) ?? []).forEach((t) => tagSet.add(t.slice(1)));
       p.text = p.text.replace(/(\s*#[^\s#]+)+\s*$/, "").trim();
     }
+    // 사진은 4장씩 동시에 받고, 넣는 순서는 원래대로
+    type Got = { ok: true; o: { blob: Blob; w: number; h: number } } | { ok: false; why: string };
+    const imgParts = parts.filter((p) => p.type !== "text");
+    const results: Got[] = new Array(imgParts.length);
+    let next = 0;
+    const worker = async () => {
+      for (let i = next++; i < imgParts.length; i = next++) {
+        const p = imgParts[i];
+        try {
+          if (p.type === "missing") throw new Error("붙여넣은 내용에 사진이 없음(화면에 아직 안 불러온 사진)");
+          const o = await loadOriginal(p.type === "file" ? p.file : await fetchImage((p as { src: string }).src));
+          if (Math.max(o.w, o.h) < 200) throw new Error(`미리보기용 작은 사진만 받음(${o.w}×${o.h})`);
+          results[i] = { ok: true, o };
+        } catch (e) { results[i] = { ok: false, why: (e as Error).message }; }
+        setPasting(`붙여넣는 중… 사진 ${++done}/${nImg}`);
+      }
+    };
+    await Promise.all([worker(), worker(), worker(), worker()]);
+    let ii = 0;
     for (const p of parts) {
       if (p.type === "text") { if (p.text) paras.push(p.text); continue; }
       flush();
-      try {
-        if (p.type === "missing") throw new Error("붙여넣은 내용에 사진이 없음(화면에 아직 안 불러온 사진)");
-        const o = await loadOriginal(p.type === "file" ? p.file : await fetchImage(p.src));
-        if (Math.max(o.w, o.h) < 200) throw new Error(`미리보기용 작은 사진만 받음(${o.w}×${o.h})`);
+      const r = results[ii++];
+      if (r.ok) {
         const key = crypto.randomUUID();
-        photos[key] = { key, blob: o.blob, url: URL.createObjectURL(o.blob), w: o.w, h: o.h };
+        photos[key] = { key, blob: r.o.blob, url: URL.createObjectURL(r.o.blob), w: r.o.w, h: r.o.h };
         blocks.push({ type: "photo", ph: key });
-        if (Math.max(o.w, o.h) < 1000) small++;
-      } catch (e) { failed++; why ||= (e as Error).message; blocks.push({ type: "text", text: FAIL }); }
-      setPasting(`붙여넣는 중… 사진 ${++done}/${nImg}`);
+        if (Math.max(r.o.w, r.o.h) < 700) small++;
+      } else { failed++; why ||= r.why; blocks.push({ type: "text", text: FAIL }); }
     }
     flush();
     setPasting("");
@@ -234,7 +250,7 @@ export default function PdfImporter() {
         },
         warnings: [
           ...(failed ? [`사진 ${failed}장을 가져오지 못했습니다. 이유: ${why}. 네이버 글 '주소'를 복사해 붙여넣으면 사진을 모두 가져올 수 있습니다.`] : []),
-          ...(small ? [`사진 ${small}장은 가로·세로 1000px 미만입니다. 필요하면 '원본으로 교체'를 눌러 주세요.`] : []),
+          ...(small ? [`사진 ${small}장은 가로·세로 700px 미만으로 작습니다. 필요하면 '원본으로 교체'를 눌러 주세요.`] : []),
         ],
       };
     });
