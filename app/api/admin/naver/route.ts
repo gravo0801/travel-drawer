@@ -1,4 +1,4 @@
-import { requireAdmin, json } from "@/lib/server/auth";
+import { requireUser, json } from "@/lib/server/auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -8,7 +8,7 @@ export const maxDuration = 30;
  * blog.naver.com 글만 허용합니다.
  */
 export async function POST(req: Request) {
-  const who = await requireAdmin(req);
+  const who = await requireUser(req);
   if (who instanceof Response) return who;
   const { blogId, logNo } = (await req.json()) as { blogId?: string; logNo?: string };
   if (!blogId || !logNo || !/^[\w-]+$/.test(blogId) || !/^\d+$/.test(logNo)) return json(400, "네이버 글 주소가 올바르지 않습니다.");

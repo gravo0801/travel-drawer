@@ -1,4 +1,4 @@
-import { requireAdmin, json } from "@/lib/server/auth";
+import { requireUser, json } from "@/lib/server/auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -12,7 +12,7 @@ const HOST = /(^|\.)(pstatic\.net|naver\.net|naver\.com)$/i;
 const LIMIT = 4_200_000;
 
 export async function POST(req: Request) {
-  const who = await requireAdmin(req);
+  const who = await requireUser(req);
   if (who instanceof Response) return who;
   const { url } = (await req.json()) as { url?: string };
   let u: URL;
@@ -22,16 +22,18 @@ export async function POST(req: Request) {
 
   const base = `https://${u.hostname}${u.pathname}`;
   const candidates = [...new Set([base, `${base}?type=w3840`, `${base}?type=w966`, `${base}?type=w773`, u.toString().replace(/^http:/, "https:")])];
+  const tried: string[] = [];
   for (const c of candidates) {
     try {
-      const r = await fetch(c, { headers: { referer: "https://blog.naver.com/", "user-agent": "Mozilla/5.0" }, cache: "no-store" });
-      if (!r.ok) continue;
+      const r = await fetch(c, { headers: { referer: "https://blog.naver.com/", "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Safari/537.36", accept: "image/avif,image/webp,image/*,*/*" }, cache: "no-store" });
+      if (!r.ok) { tried.push(String(r.status)); continue; }
       const type = r.headers.get("content-type") ?? "";
-      if (!type.startsWith("image/")) continue;
+      if (!type.startsWith("image/")) { tried.push(type || "형식?"); continue; }
       const buf = await r.arrayBuffer();
-      if (buf.byteLength > LIMIT || buf.byteLength < 500) continue;
+      if (buf.byteLength > LIMIT) { tried.push("용량 큼"); continue; }
+      if (buf.byteLength < 500) { tried.push("빈 사진"); continue; }
       return new Response(buf, { headers: { "content-type": type, "x-source-url": c, "cache-control": "no-store" } });
-    } catch { /* 다음 크기로 */ }
+    } catch (e) { tried.push((e as Error).message.slice(0, 40)); }
   }
-  return json(502, "사진을 가져오지 못했습니다.");
+  return json(502, `네이버 사진 서버가 응답하지 않았습니다 (${[...new Set(tried)].join(", ")}).`);
 }

@@ -152,8 +152,11 @@ export default function PdfImporter() {
     const u = new URL(src, location.href);
     if (/(^|\.)(pstatic\.net|naver\.net|naver\.com)$/i.test(u.hostname)) {
       const r = await fetch("/api/admin/image", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${await user!.getIdToken()}` }, body: JSON.stringify({ url: u.toString() }) });
-      if (!r.ok) throw new Error("fail");
-      return r.blob();
+      if (r.ok) return r.blob();
+      const why = ((await r.json().catch(() => ({}))) as { error?: string }).error ?? `오류 ${r.status}`;
+      // 서버가 못 받으면 브라우저에서 직접 시도
+      try { const d2 = await fetch(u.toString().replace(/^http:/, "https:"), { mode: "cors", referrerPolicy: "no-referrer" }); if (d2.ok) return d2.blob(); } catch { /* 무시 */ }
+      throw new Error(why);
     }
     const r = await fetch(u.toString());
     if (!r.ok) throw new Error("fail");
@@ -189,7 +192,7 @@ export default function PdfImporter() {
     setPasting(`붙여넣는 중… 사진 0/${nImg}`);
     const photos: Record<string, Ph> = {};
     const blocks: DBlock[] = [];
-    let paras: string[] = [], done = 0, failed = 0, small = 0;
+    let paras: string[] = [], done = 0, failed = 0, small = 0, why = "";
     const flush = () => { if (paras.length) blocks.push({ type: "text", text: paras.join("\n\n") }); paras = []; };
     // 해시태그만 있는 문단은 태그로 옮기고, 문단 끝의 태그도 떼어 냄
     const tagSet = new Set<string>();
@@ -206,7 +209,7 @@ export default function PdfImporter() {
         photos[key] = { key, blob: o.blob, url: URL.createObjectURL(o.blob), w: o.w, h: o.h };
         blocks.push({ type: "photo", ph: key });
         if (Math.max(o.w, o.h) < 1000) small++;
-      } catch { failed++; blocks.push({ type: "text", text: FAIL }); }
+      } catch (e) { failed++; why ||= (e as Error).message; blocks.push({ type: "text", text: FAIL }); }
       setPasting(`붙여넣는 중… 사진 ${++done}/${nImg}`);
     }
     flush();
@@ -228,7 +231,7 @@ export default function PdfImporter() {
           date: x.meta.date || g.date, country: x.meta.country || g.country, city: x.meta.city || g.city, series: x.meta.series || g.series,
         },
         warnings: [
-          ...(failed ? [`사진 ${failed}장을 가져오지 못했습니다. ⚠ 표시된 자리에 직접 넣어 주세요.`] : []),
+          ...(failed ? [`사진 ${failed}장을 가져오지 못했습니다. 이유: ${why} — ⚠ 자리에 직접 넣거나, 이유를 알려 주세요.`] : []),
           ...(small ? [`사진 ${small}장은 가로·세로 1000px 미만입니다. 필요하면 '원본으로 교체'를 눌러 주세요.`] : []),
         ],
       };
