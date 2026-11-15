@@ -23,3 +23,23 @@ export async function requireAdmin(req: Request): Promise<{ uid: string } | Resp
 export function json(status: number, error: string) {
   return Response.json({ error }, { status });
 }
+
+/**
+ * 로그인만 확인 (네이버 글·사진 불러오기용). 게시는 requireAdmin으로 따로 막습니다.
+ * ADMIN_UIDS가 아직 없어도 붙여넣기·미리보기는 되도록.
+ */
+export async function requireUser(req: Request): Promise<{ uid: string } | Response> {
+  const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+  const key = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+  if (!token) return json(401, "로그인이 필요합니다.");
+  if (!key) return json(500, "Firebase 설정(NEXT_PUBLIC_FIREBASE_API_KEY)이 없습니다.");
+  const r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(key)}`, {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ idToken: token }), cache: "no-store",
+  });
+  if (!r.ok) return json(401, "로그인이 만료되었습니다. 다시 로그인해 주세요.");
+  const uid = ((await r.json()) as { users?: { localId: string }[] }).users?.[0]?.localId;
+  if (!uid) return json(401, "로그인이 필요합니다.");
+  const allowed = (process.env.ADMIN_UIDS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  if (allowed.length && !allowed.includes(uid)) return json(403, "관리자 계정이 아닙니다.");
+  return { uid };
+}
