@@ -28,6 +28,12 @@ export function getPosts(): PostSummary[] {
   return readAll().map(summarize).sort(byTripDesc);
 }
 
+/** 이 블로그에 최근 올린 순서 (여행 날짜가 아니라 올린 시각 기준) */
+export function getRecentlyAdded(n = 4): PostSummary[] {
+  const key = (p: PostSummary) => p.addedAt ?? p.publishedAt ?? "";
+  return getPosts().sort((a, b) => (key(a) < key(b) ? 1 : -1)).slice(0, n);
+}
+
 /** 보관함에 올라온 글 전체(여행 날짜 최신순). */
 export function getArchive(): PostSummary[] {
   return getPosts();

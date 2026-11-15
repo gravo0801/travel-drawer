@@ -53,7 +53,7 @@ function build(d: Draft, preview: boolean): { post: Post; files: { file: string;
     publishedAt: m.publishedAt, series: m.series.trim() || (m.date.length >= 7 && m.city.trim() ? `${m.date.slice(0, 4)}.${m.date.slice(5, 7)} ${m.city.trim()}` : undefined), category: m.category.trim() || null,
     hashtags: m.hashtags.split(/[\s,#]+/).map((t) => t.trim()).filter(Boolean),
     summary: m.summary.trim() || undefined, places: m.places.length ? m.places : undefined,
-    cover, blocks, naverUrl: m.naverUrl ?? null, source: d.orig?.source ?? (d.kind === "new" ? "editor" : m.naverUrl ? "naver" : "pdf"), photoCount: files.length,
+    cover, blocks, naverUrl: m.naverUrl ?? null, addedAt: d.orig?.addedAt, source: d.orig?.source ?? (d.kind === "new" ? "editor" : m.naverUrl ? "naver" : "pdf"), photoCount: files.length,
   };
   return { post, files };
 }
@@ -303,7 +303,7 @@ export default function PdfImporter() {
           ...x.meta, title: t,
           ...(naver ? { naverUrl: naver.url, postId: naver.logNo } : {}),
           ...(postedAt ? { publishedAt: postedAt } : {}), cover: x.meta.cover ?? firstPhoto?.ph, hashtags: x.meta.hashtags || tags.join(" "),
-          date: x.meta.date || g.date || (postedAt ? postedAt.slice(0, 7) : ""), country: x.meta.country || g.country, city: x.meta.city || g.city, series: x.meta.series || g.series,
+          date: x.meta.date || g.date, // 작성일로 여행 날짜를 짐작하지 않음(틀린 날짜보다 빈칸이 나음) country: x.meta.country || g.country, city: x.meta.city || g.city, series: x.meta.series || g.series,
         },
         warnings: [
           ...(failed ? [`사진 ${failed}장을 가져오지 못했습니다. 이유: ${why}. 네이버 글 '주소'를 복사해 붙여넣으면 사진을 모두 가져올 수 있습니다.`] : []),
@@ -411,9 +411,22 @@ export default function PdfImporter() {
         items.push({ post, photos, overwrite: d.overwrite });
       }
       targets.forEach((d) => patch(d.id, () => ({ step: "게시하는 중…" })));
-      await api("/api/admin/publish", { items });
+      const res = await api("/api/admin/publish", { items }) as { stamps?: Record<string, string> };
       targets.forEach((d) => patch(d.id, () => ({ status: "done", step: "", selected: false })));
-      setMsg({ ok: true, text: `${items.length}편을 게시했습니다. 사이트에는 1~2분 뒤(다시 배포가 끝나면) 보입니다.`, links: items.map((i) => ({ id: i.post.id, title: i.post.title })) });
+      const links = items.map((i) => ({ id: i.post.id, title: i.post.title || "(제목 없음)" }));
+      setMsg({ ok: true, text: `${items.length}편을 저장했습니다. 사이트에 반영되는 중입니다(보통 1~2분)… 이 화면을 열어 두면 반영되는 대로 알려 드립니다.`, links });
+      // 사이트에 실제로 반영될 때까지 확인
+      const stamps = res.stamps ?? {};
+      (async () => {
+        for (let t = 0; t < 40; t++) {
+          await new Promise((r) => setTimeout(r, 10000));
+          const ok = await Promise.all(items.map(async (i) => {
+            try { const r = await fetch(`/posts/${i.post.id}?v=${Date.now()}`, { cache: "no-store" }); return r.ok && (await r.text()).includes(`data-stamp="${stamps[i.post.id]}"`); } catch { return false; }
+          }));
+          if (ok.every(Boolean)) { setMsg({ ok: true, text: `사이트에 반영됐습니다. 아래 링크로 바로 볼 수 있고, 글 목록·첫 화면 '최근에 올린 글'에도 나옵니다.`, links }); return; }
+        }
+        setMsg({ ok: false, text: "저장은 됐지만 7분이 지나도 사이트에 반영되지 않았습니다. 잠시 뒤 새로고침해 보시고, 계속 안 보이면 알려 주세요.", links });
+      })();
     } catch (e) {
       const conflicts: string[] = (e as { data?: { conflicts?: string[] } }).data?.conflicts ?? [];
       targets.forEach((d) => patch(d.id, () => ({

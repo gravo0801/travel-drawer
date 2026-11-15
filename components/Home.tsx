@@ -57,7 +57,7 @@ export default function Home({ recent, archive, countries }: { recent: PostSumma
       <div className="marq" aria-hidden="true"><div className="mq">{marquee}{marquee}</div></div>
 
       <section className="sec" id="recent">
-        <div className="sec-h"><span className="eyebrow">Recent</span><h2>최근에 다녀온 곳</h2><p>가장 최근에 옮겨 온 여행기입니다. 사진을 누르면 글로 이동합니다.</p></div>
+        <div className="sec-h"><span className="eyebrow">Recent</span><h2>최근에 올린 글</h2><p>가장 최근에 올리거나 옮겨 온 여행기입니다. 사진을 누르면 글로 이동합니다.</p></div>
         <div className="cards">
           {recent.map((p) => (
             <Link className="card" href={`/posts/${p.id}`} key={p.id}>

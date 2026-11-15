@@ -2,12 +2,12 @@
  "id": "224015623493",
  "title": "이탈리아 1일차 - 에미레이트 비즈니스, 밀라노 도착, 글램 밀라노 호텔 체크인, 두오모 야경 관람, 비토리오 에마누엘레 2세 갤러리아 구경.",
  "trip": {
-  "date": "2025-09",
+  "date": "2025-05",
   "country": "이탈리아",
   "city": "밀라노"
  },
  "publishedAt": "2025-09-20",
- "series": "2025.09 밀라노",
+ "series": "2025.05 밀라노",
  "category": "2025.05 Italy",
  "hashtags": [
   "두바이",
@@ -237,5 +237,6 @@
  ],
  "naverUrl": "http://blog.naver.com/bbae30714/224015623493",
  "source": "naver",
- "photoCount": 24
+ "photoCount": 24,
+ "addedAt": "2026-11-15T14:22:00.000Z"
 }
