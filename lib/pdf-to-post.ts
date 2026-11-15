@@ -56,9 +56,22 @@ const isJunk = (l: string) => JUNK.some((r) => r.test(l));
 const isPhoto = (l: string) => /^\[\[사진 \d+\]\]$/.test(l);
 const isDateLine = (l: string) => JUNK[1].test(l);
 
+/** 근교 지역 → 여행기에서 묶을 도시 (예: 메스트레는 베네치아 여행으로) */
+const AREA: Record<string, string> = { 메스트레: "베네치아", 베니스: "베네치아", 무라노: "베네치아", 부라노: "베네치아", 하카타: "후쿠오카", 비엔나: "빈" };
+const HOTEL = /^(호텔|hotel|리조트|resort|인|inn)$/i;
+
 function findPlace(texts: string[]): { city: string; country: string } {
+  const pick = (w: string) => { const c = AREA[w] ?? w; return { city: c, country: CITY[c] ?? CITY[w] }; };
+  // 1) 해시태그가 도시 이름 그 자체면 가장 믿을 만함 (#베네치아)
+  for (const t of texts.slice(1)) { const w = t.replace(/여행$/, ""); if (CITY[w]) return pick(w); }
+  // 2) 제목·본문: 호텔 이름 속 도시(예: '호텔 볼로냐')는 건너뜀
   const words = texts.flatMap((t) => t.replace(/여행|맛집|투어|일정|자유여행/g, " ").split(/[^\p{L}\p{N}]+/u)).filter(Boolean);
-  for (const w of words) if (CITY[w]) return { city: w, country: CITY[w] };
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i];
+    if (!CITY[w]) continue;
+    if (HOTEL.test(words[i - 1] ?? "") || HOTEL.test(words[i + 1] ?? "")) continue;
+    return pick(w);
+  }
   const low = texts.join(" ").toLowerCase();
   for (const [en, ko] of Object.entries(CITY_EN)) if (new RegExp(`\\b${en}\\b`).test(low)) return { city: ko, country: CITY[ko] };
   for (const w of words) if (COUNTRY_EN[w]) return { city: "", country: w };
