@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 export function GET() {
   return Response.json({
     firebase: !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-    adminUids: !!(process.env.ADMIN_UIDS ?? "").trim(),
+    adminUids: true, // 코드에 기본 관리자 UID가 들어 있음
     githubToken: !!process.env.GITHUB_TOKEN,
   });
 }
