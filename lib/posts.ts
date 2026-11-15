@@ -16,7 +16,7 @@ function summarize(p: Post): PostSummary {
   const photos = (blocks ?? []).reduce((n, b) => n + (b.type === "photo" ? 1 : b.type === "gallery" ? b.photos.length : 0), 0);
   const first = (blocks ?? []).find((b) => b.type === "text");
   const excerpt = first && first.type === "text" ? first.text.replace(/\s+/g, " ").slice(0, 120) : undefined;
-  return { ...rest, photoCount: p.photoCount ?? photos, excerpt };
+  return { ...rest, photoCount: p.photoCount ?? photos, excerpt: p.summary || excerpt };
 }
 
 const byTripDesc = (a: { trip: { date: string } }, b: { trip: { date: string } }) => (a.trip.date < b.trip.date ? 1 : -1);

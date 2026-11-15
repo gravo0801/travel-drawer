@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { getAuth, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut, type User } from "firebase/auth";
 import { firebaseApp } from "@/lib/firebase";
 
@@ -44,7 +45,8 @@ export default function AdminPanel() {
       {ready && app && user && (
         <>
           <p>로그인됨: <strong>{user.displayName ?? "이름 없음"}</strong></p>
-          <p className="muted">아래 고유번호(UID)를 알려주시면 쓰기 권한 규칙에 넣겠습니다.</p>
+          <Link className="btn" href="/admin/import">PDF로 글 올리기 →</Link>
+          <p className="muted" style={{ marginTop: 18 }}>아래 고유번호(UID)를 Vercel 환경변수 ADMIN_UIDS에 넣으면 글 올리기 권한이 생깁니다.</p>
           <code className="uid">{user.uid}</code>
           <div className="row">
             <button className="btn" type="button" onClick={copyUid}>{copied ? "복사됨" : "UID 복사"}</button>
