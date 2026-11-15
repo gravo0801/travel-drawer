@@ -20,7 +20,19 @@ function imgSrc(el: Element): string | null {
 
 export function parseHtml(html: string, plain = "", files: File[] = []): Pasted {
   const doc = new DOMParser().parseFromString(html, "text/html");
-  doc.querySelectorAll("script, style, noscript, button, .se-oglink, .se-map, .se-placesMap, .se-sticker, .se-video, .se-oembed, .se-toolbar, .se-help-panel, .se-image-caption-placeholder, [class*='placeholder']").forEach((e) => e.remove());
+  // 링크 카드·링크 글자는 잘린 글자 대신 실제 주소를 남김 (지도 표시용)
+  doc.querySelectorAll(".se-oglink, .se-module-oglink").forEach((card) => {
+    const href = card.querySelector("a[href]")?.getAttribute("href");
+    const title = card.querySelector(".se-oglink-title")?.textContent?.trim();
+    const p = doc.createElement("p");
+    p.textContent = href ?? "";
+    card.replaceWith(...(title ? [Object.assign(doc.createElement("p"), { textContent: title }), p] : [p]));
+  });
+  doc.querySelectorAll("a[href]").forEach((a) => {
+    const href = a.getAttribute("href") ?? "";
+    if (/google\.[a-z.]+\/maps|maps\.app\.goo\.gl|goo\.gl\/maps/i.test(href)) a.textContent = href;
+  });
+  doc.querySelectorAll("script, style, noscript, button, .se-map, .se-placesMap, .se-sticker, .se-video, .se-oembed, .se-toolbar, .se-help-panel, .se-image-caption-placeholder, [class*='placeholder']").forEach((e) => e.remove());
 
   const tEl = doc.querySelector(".se-documentTitle .se-text-paragraph, .se-title-text, .se_title .se_textarea, .pcol1, .htitle");
   const title = tEl ? clean(tEl.textContent ?? "") : undefined;
