@@ -28,3 +28,8 @@ export const SITE = {
   tagline: "거의 20년 동안 써 온 여행의 기록입니다. 연도와 나라, 도시를 따라 길을 찾아보세요.",
   totalPosts: 849,
 };
+
+/** 모든 기기에 공통으로 적용되는 사이트 설정 (content/site.json, 저장소에 커밋됨) */
+export type SiteSlot = { src: string; w: number; h: number; fx: number; fy: number };
+export type SiteConfig = { v: string; theme: Theme; align: Align; fonts: { t: string; b: string }; slots: Partial<Record<SlotKey, SiteSlot>> };
+export const SITE_DEFAULT: SiteConfig = { v: "", theme: "dark", align: "center", fonts: { t: "pre", b: "pre" }, slots: {} };
