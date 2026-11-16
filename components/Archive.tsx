@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PostSummary } from "@/lib/types";
 import { countryEn } from "@/lib/countries";
+import { tripMonth, tripKey, dayNo, byDay } from "@/lib/trip";
 import { SlotImage } from "./SettingsProvider";
 
 type G<T> = { k: string; a: T[] };
@@ -11,8 +12,10 @@ function groupBy<T>(arr: T[], fn: (x: T) => string): G<T>[] {
   arr.forEach((x) => { const k = fn(x); if (!m.has(k)) m.set(k, []); m.get(k)!.push(x); });
   return [...m].map(([k, a]) => ({ k, a }));
 }
-const yearOf = (p: PostSummary) => p.trip.date.slice(0, 4) || "날짜 미정";
-const md = (p: PostSummary) => (p.trip.date.length >= 7 ? p.trip.date.slice(5).replace("-", ".") : "");
+const yearOf = (p: PostSummary) => tripMonth(p).slice(0, 4) || "날짜 미정";
+/** 글 앞 작은 표시: "4일차", 없으면 여행 월 */
+const md = (p: PostSummary) => { const d = dayNo(p.title); if (d !== null) return `${d}일차`; const m = tripMonth(p); return m.length >= 7 ? `${+m.slice(5)}월` : ""; };
+const monthLabel = (m: string) => (m.length >= 7 ? `${m.slice(0, 4)}.${m.slice(5, 7)}` : "월 미정");
 
 export default function Archive({ posts }: { posts: PostSummary[] }) {
   const [q, setQ] = useState("");
@@ -78,22 +81,24 @@ export default function Archive({ posts }: { posts: PostSummary[] }) {
             <div ref={main} onMouseLeave={() => setPv(null)}>
               {!vis.length && <div className="empty">조건에 맞는 글이 없습니다.<br />검색어나 나라 선택을 바꿔 보세요.</div>}
               {years.map((g) => {
-                const byC = groupBy(g.a, (p) => p.trip.country);
+                // 같은 여행 = 같은 여행 연월 + 나라. 최근 여행부터, 여행 안에서는 일차 순
+                const byC = groupBy(g.a, tripKey).sort((x, y) => (x.k < y.k ? 1 : -1)).map((t) => ({ k: t.k, country: t.a[0].trip.country, month: tripMonth(t.a[0]), a: [...t.a].sort(byDay) }));
+                const cities = (a: PostSummary[]) => [...new Set(a.map((p) => p.trip.city))].join(" · ");
                 return (
                   <section key={g.k} className={"yr" + (shut[g.k] ? " shut" : "")} id={"y" + g.k} data-y={g.k}>
                     <header className="yh">
                       <h3 className="ynum">{g.k}</h3>
-                      <div className="ysum">{byC.map((c) => <div className="ys" key={c.k}><b>{c.k}</b> <span>{groupBy(c.a, (p) => p.trip.city).map((x) => x.k).join(" · ")}</span></div>)}</div>
+                      <div className="ysum">{byC.map((c) => <div className="ys" key={c.k}><b>{c.country}</b> <span>{cities(c.a)}</span></div>)}</div>
                       <button className="yt" type="button" aria-expanded={!shut[g.k]} onClick={() => setShut((s) => ({ ...s, [g.k]: !s[g.k] }))}>{shut[g.k] ? "펼치기" : "접기"} · {g.a.length}편</button>
                     </header>
                     {!shut[g.k] && (
                       <div className="ybody">
                         {byC.map((c) => (
                           <div className="crow" key={c.k}>
-                            <div className="cn">{c.k}<span className="ce">{countryEn(c.k)}</span><span className="cc">{c.a.length}편</span></div>
-                            <div>{groupBy(c.a, (p) => p.trip.city).map((ct) => (
+                            <div className="cn">{c.country}<span className="ce">{countryEn(c.country)}</span><span className="cc">{monthLabel(c.month)} 여행 · {c.a.length}편</span></div>
+                            <div>{[{ k: c.k, a: c.a }].map((ct) => (
                               <div className="cg" key={ct.k}>
-                                <div className="city">{ct.k}</div>
+                                <div className="city">{cities(ct.a)}</div>
                                 <ul className="posts">{ct.a.map((p) => {
                                   const inner = <><span className="pd">{md(p)}</span><span className="pt">{p.title}</span><span className="pn">사진 {p.photoCount}</span></>;
                                   const hover = fine ? { onMouseEnter: (e: React.MouseEvent) => setPv({ p, x: e.clientX, y: e.clientY }), onMouseMove: (e: React.MouseEvent) => setPv({ p, x: e.clientX, y: e.clientY }), onMouseLeave: () => setPv(null) } : {};

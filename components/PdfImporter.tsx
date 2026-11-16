@@ -6,6 +6,7 @@ import { login } from "@/lib/login";
 import { firebaseApp } from "@/lib/firebase";
 import { extractPdf } from "@/lib/pdf-extract";
 import { pdfToPost, guessTrip } from "@/lib/pdf-to-post";
+import { seriesName } from "@/lib/trip";
 import { parsePaste, parseHtml, hasImages, naverPostId, type Pasted } from "@/lib/paste-to-blocks";
 import type { Block, Photo, Post } from "@/lib/types";
 import PostView from "./PostView";
@@ -50,8 +51,8 @@ function build(d: Draft, preview: boolean): { post: Post; files: { file: string;
     b.type === "text" ? b : b.type === "photo" ? { type: "photo", ...use(b.ph) } : { type: "gallery", photos: b.phs.map(use) });
   const cover = m.cover && srcOf.has(m.cover) ? srcOf.get(m.cover)! : files.length ? srcOf.values().next().value! : null;
   const post: Post = {
-    id: m.postId, title: m.title.trim() || (preview ? "제목을 입력하세요" : ""), trip: { date: m.date.trim(), country: m.country.trim(), city: m.city.trim() },
-    publishedAt: m.publishedAt, series: m.series.trim() || (m.date.length >= 7 && m.city.trim() ? `${m.date.slice(0, 4)}.${m.date.slice(5, 7)} ${m.city.trim()}` : undefined), category: m.category.trim() || null,
+    id: m.postId, title: m.title.trim() || (preview ? "제목을 입력하세요" : ""), trip: { date: m.date.trim().slice(0, 7), country: m.country.trim(), city: m.city.trim() },
+    publishedAt: m.publishedAt, series: seriesName(m.date.trim().slice(0, 7), m.country.trim()) || undefined, // 같은 여행 묶음은 여행 연월 + 나라로 자동 category: m.category.trim() || null,
     hashtags: m.hashtags.split(/[\s,#]+/).map((t) => t.trim()).filter(Boolean),
     summary: m.summary.trim() || undefined, places: m.places.length ? m.places : undefined,
     cover, blocks, naverUrl: m.naverUrl ?? null, addedAt: d.orig?.addedAt, source: d.orig?.source ?? (d.kind === "new" ? "editor" : m.naverUrl ? "naver" : "pdf"), photoCount: files.length,
@@ -147,7 +148,7 @@ export default function PdfImporter() {
         setDrafts((ds) => [...ds, {
           id: did, kind: "new", orig: post, status: "ready", step: "", warnings: [], photos, blocks: blocks.length ? blocks : [{ type: "text", text: "" }], selected: true, overwrite: true,
           meta: {
-            postId: post.id, title: post.title ?? "", date: post.trip?.date ?? "", country: post.trip?.country ?? "", city: post.trip?.city ?? "",
+            postId: post.id, title: post.title ?? "", date: (post.trip?.date ?? "").slice(0, 7), country: post.trip?.country ?? "", city: post.trip?.city ?? "",
             series: post.series ?? "", category: post.category ?? "", hashtags: (post.hashtags ?? []).join(" "), summary: post.summary ?? "",
             places: post.places ?? [], cover: post.cover ? bySrc.get(post.cover) : undefined, publishedAt: post.publishedAt ?? today(), naverUrl: post.naverUrl ?? undefined,
           },
@@ -304,7 +305,8 @@ export default function PdfImporter() {
           ...x.meta, title: t,
           ...(naver ? { naverUrl: naver.url, postId: naver.logNo } : {}),
           ...(postedAt ? { publishedAt: postedAt } : {}), cover: x.meta.cover ?? firstPhoto?.ph, hashtags: x.meta.hashtags || tags.join(" "),
-          date: x.meta.date || g.date, // 작성일로 여행 날짜를 짐작하지 않음(틀린 날짜보다 빈칸이 나음) country: x.meta.country || g.country, city: x.meta.city || g.city, series: x.meta.series || g.series,
+          // 작성일로 여행 날짜를 짐작하지 않음(틀린 날짜보다 빈칸이 나음)
+          date: (x.meta.date || g.date).slice(0, 7), country: x.meta.country || g.country, city: x.meta.city || g.city, series: x.meta.series || g.series,
         },
         warnings: [
           ...(failed ? [`사진 ${failed}장을 가져오지 못했습니다. 이유: ${why}. 네이버 글 '주소'를 복사해 붙여넣으면 사진을 모두 가져올 수 있습니다.`] : []),
@@ -361,7 +363,7 @@ export default function PdfImporter() {
     });
     patch(d.id, (x) => ({
       status: "ready", step: "", blocks, warnings: r.warnings,
-      meta: { ...x.meta, title: r.title, date: r.date, country: r.country, city: r.city, series: r.series, category: r.category, hashtags: r.hashtags.join(" "), cover: photoKeys[0] },
+      meta: { ...x.meta, title: r.title, date: r.date.slice(0, 7), country: r.country, city: r.city, series: r.series, category: r.category, hashtags: r.hashtags.join(" "), cover: photoKeys[0] },
     }));
   }, [patch]);
 
@@ -599,10 +601,9 @@ export default function PdfImporter() {
             {d.error && <p className="bad wide">{d.error}</p>}
             {d.warnings.map((w) => <p key={w} className="warn wide">{w}</p>)}
             <label className="wide">제목<input value={d.meta.title} placeholder="비어 있음" onChange={(e) => setMeta({ title: e.target.value })} /></label>
-            <label className={!d.meta.date || dateOk(d.meta.date) ? "" : "need"}>여행 날짜 <small>예: 2026-01-23 또는 2026-01</small><input value={d.meta.date} placeholder="비어 있음" inputMode="numeric" onChange={(e) => setMeta({ date: normDate(e.target.value) })} /></label>
+            <label className={!d.meta.date || dateOk(d.meta.date) ? "" : "need"}>여행 연월 <small>같은 연월·나라의 글은 한 여행으로 묶임</small><input type="month" value={d.meta.date.slice(0, 7)} placeholder="2026-01" onChange={(e) => setMeta({ date: normDate(e.target.value).slice(0, 7) })} /></label>
             <label>나라<input value={d.meta.country} placeholder="비어 있음" onChange={(e) => setMeta({ country: e.target.value })} /></label>
             <label>도시<input value={d.meta.city} placeholder="비어 있음" onChange={(e) => setMeta({ city: e.target.value })} /></label>
-            <label>여행 묶음 <small>예: 2026.01 방콕</small><input value={d.meta.series} placeholder="비워도 됨" onChange={(e) => setMeta({ series: e.target.value })} /></label>
             <label>분류<input value={d.meta.category} onChange={(e) => setMeta({ category: e.target.value })} /></label>
             <label>작성일<input type="date" value={d.meta.publishedAt} onChange={(e) => setMeta({ publishedAt: e.target.value })} /></label>
             <label className="wide">태그 <small>띄어쓰기로 구분</small><input value={d.meta.hashtags} onChange={(e) => setMeta({ hashtags: e.target.value })} /></label>
