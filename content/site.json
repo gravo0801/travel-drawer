@@ -1,14 +1,14 @@
 {
- "v": "2026-11-16T05:40:22.683Z",
+ "v": "2026-11-16T05:40:41.801Z",
  "theme": "light",
  "align": "center",
  "fonts": {
-  "t": "nserif",
+  "t": "gd",
   "b": "nmj"
  },
  "slots": {
   "hero": {
-   "src": "/media/site/custom/hero-mwiu490z.jpg",
+   "src": "/media/site/custom/hero-mwiu4nry.jpg",
    "w": 2000,
    "h": 1125,
    "fx": 50,
