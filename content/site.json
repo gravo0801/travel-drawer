@@ -1,1 +1,18 @@
-{ "v": "", "theme": "dark", "align": "center", "fonts": { "t": "pre", "b": "pre" }, "slots": {} }
+{
+ "v": "2026-11-16T05:40:22.683Z",
+ "theme": "light",
+ "align": "center",
+ "fonts": {
+  "t": "nserif",
+  "b": "nmj"
+ },
+ "slots": {
+  "hero": {
+   "src": "/media/site/custom/hero-mwiu490z.jpg",
+   "w": 2000,
+   "h": 1125,
+   "fx": 50,
+   "fy": 50
+  }
+ }
+}
