@@ -69,3 +69,10 @@ export async function commitFiles(files: { path: string; sha?: string | null; co
   await gh(`/repos/${repo}/git/refs/heads/${branch}`, { method: "PATCH", body: JSON.stringify({ sha: next!.sha }) });
   return next!.sha;
 }
+
+/** 저장소의 최신 텍스트 파일 (없으면 null) */
+export async function readText(p: string): Promise<string | null> {
+  const { repo, branch } = cfg();
+  const r = await gh<{ content: string }>(`/repos/${repo}/contents/${p}?ref=${branch}`, { allow404: true });
+  return r ? Buffer.from(r.content, "base64").toString("utf8") : null;
+}

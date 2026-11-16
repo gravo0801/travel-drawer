@@ -1,7 +1,10 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { getAuth, onAuthStateChanged, type User } from "firebase/auth";
 import { FONTS, SLOTS, type SlotKey } from "@/lib/site";
+import { firebaseApp } from "@/lib/firebase";
+import { login } from "@/lib/login";
 import { useSettings } from "./SettingsProvider";
 
 function verdict(k: SlotKey, w: number, h: number, custom: boolean) {
@@ -19,8 +22,58 @@ function verdict(k: SlotKey, w: number, h: number, custom: boolean) {
   return out;
 }
 
+/** 사진을 가로 2400px 이하 JPEG로 줄임 (저장소 용량·로딩 속도) */
+async function shrink(blob: Blob, w: number, h: number): Promise<{ base64: string; w: number; h: number }> {
+  const url = URL.createObjectURL(blob);
+  const im = await new Promise<HTMLImageElement>((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+  const sc = Math.min(1, 2400 / (w || im.naturalWidth));
+  const cw = Math.round(im.naturalWidth * sc), ch = Math.round(im.naturalHeight * sc);
+  const c = document.createElement("canvas"); c.width = cw; c.height = ch;
+  c.getContext("2d")!.drawImage(im, 0, 0, cw, ch);
+  URL.revokeObjectURL(url);
+  const data = c.toDataURL("image/jpeg", 0.88);
+  return { base64: data.slice(data.indexOf(",") + 1), w: cw, h: ch };
+}
+
 export default function Settings() {
   const s = useSettings();
+  const app = firebaseApp();
+  const [user, setUser] = useState<User | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  useEffect(() => { if (!app) return; return onAuthStateChanged(getAuth(app), setUser); }, [app]);
+
+  /** 이 기기의 설정을 사이트 설정으로 저장 → 어느 기기에서 열어도 같은 모습 */
+  async function saveAll() {
+    if (!app) { setMsg("Firebase 설정이 없어 저장할 수 없습니다."); return; }
+    setBusy(true); setMsg("");
+    try {
+      let u = user;
+      if (!u) { const err = await login(app); if (err) { setMsg(err); return; } u = getAuth(app).currentUser; if (!u) { setMsg("로그인이 끝나면 다시 눌러 주세요."); return; } }
+      const tok = await u.getIdToken();
+      const post = async (path: string, body: unknown) => {
+        const r = await fetch(path, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${tok}` }, body: JSON.stringify(body) });
+        const j = (await r.json().catch(() => ({}))) as { error?: string; sha?: string };
+        if (!r.ok) throw new Error(j.error ?? `실패 (${r.status})`);
+        return j;
+      };
+      const slots: Record<string, unknown> = {};
+      for (const k of Object.keys(SLOTS) as SlotKey[]) {
+        const st = s.slot(k), [fx, fy] = s.focusOf(k);
+        const loc = await s.localBlob(k);
+        if (loc) {
+          setMsg(`${SLOTS[k].name} 올리는 중…`);
+          const sm = await shrink(loc.blob, loc.w, loc.h);
+          const { sha } = await post("/api/admin/blob", { base64: sm.base64 });
+          slots[k] = { sha, w: sm.w, h: sm.h, fx, fy };
+        } else if (st.custom && s.site.slots[k] && !s.isReset(k)) slots[k] = { src: s.site.slots[k]!.src, w: st.w, h: st.h, fx, fy };
+      }
+      setMsg("저장하는 중…");
+      await post("/api/admin/site", { theme: s.theme, align: s.align, fonts: s.fonts, slots });
+      setMsg("✓ 저장했습니다. 1~2분 뒤 폰·PC 어디서든 같은 모습으로 보입니다.");
+    } catch (e) { setMsg("저장 실패: " + (e as Error).message); }
+    finally { setBusy(false); }
+  }
   const [tab, setTab] = useState<"look" | "text" | "photo" | "font">("look");
   const closeRef = useRef<HTMLButtonElement>(null);
   const opener = useRef<Element | null>(null);
@@ -105,7 +158,6 @@ export default function Settings() {
                   <tr><td>여행기 대표 사진</td><td>4:5 세로 또는 4:3 가로</td><td>1200×1500</td></tr>
                 </tbody>
               </table>
-              <p className="h" style={{ marginTop: 10 }}>지금은 이 브라우저에만 저장됩니다. Firebase를 연결하면 모든 방문자에게 적용되도록 바꿉니다.</p>
             </div>
           )}
           {tab === "font" && (
@@ -129,6 +181,11 @@ export default function Settings() {
               <div className="live"><b>미리보기</b><p className="lt">이탈리아 5일차 - 베네치아 본섬 당일치기</p><p className="lb">2025.05 · 이탈리아 · 베네치아. 메스트레 숙소에 짐을 풀고, 오후에는 수상버스를 타고 본섬으로 건너갔다.</p></div>
             </div>
           )}
+        </div>
+        <div className="savebar">
+          <p>바꾼 설정은 <b>이 기기에서만</b> 먼저 보입니다. <b>[모든 기기에 저장]</b>을 눌러야 폰·PC·방문자 모두에게 같은 모습으로 적용됩니다.</p>
+          <button type="button" className="pri" disabled={busy} onClick={saveAll}>{busy ? "저장 중…" : user ? "모든 기기에 저장" : "관리자 로그인하고 모든 기기에 저장"}</button>
+          {msg && <p className="sm" role="status">{msg}</p>}
         </div>
         <div className="dfoot">
           <Link href="/write" onClick={() => s.setOpen(false)}>✎ 글쓰기 · PDF 가져오기</Link>
