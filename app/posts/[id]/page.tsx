@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 import SiteNav from "@/components/SiteNav";
 import { getPost, getPosts } from "@/lib/posts";
 import PostView from "@/components/PostView";
-import EditPostButton from "@/components/EditPostButton";
 
 export function generateStaticParams() {
   return getPosts().map((p) => ({ id: p.id }));
@@ -25,9 +24,8 @@ export default async function PostPage({ params }: { params: Promise<{ id: strin
 
   return (
     <>
-      <SiteNav solid />
+      <SiteNav solid editId={post.id} />
       <article className="post" data-stamp={post.updatedAt ?? post.addedAt ?? ""}>
-        <EditPostButton id={post.id} />
         <PostView post={post} />
         <nav className="p-nav" aria-label="다른 글">
           {older ? <Link href={`/posts/${older.id}`}><small>이전 여행</small><span>{older.title}</span></Link> : <span />}

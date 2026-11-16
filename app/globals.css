@@ -378,7 +378,8 @@ button,input{font:inherit;color:inherit}
 @media (max-width:860px){.imp{grid-template-columns:1fr}.imp-side{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line)}.meta{grid-template-columns:1fr 1fr}}
 .gear.write{background:var(--acc);border-color:var(--acc);color:var(--acc-ink)}
 .gear.write:hover{background:var(--acc);filter:brightness(1.08)}
-@media (max-width:720px){.gear.write + .gear{margin-left:0}.gear.write span{display:none}.gear.write{padding:0 12px}}
+/* 휴대폰: 이름은 줄이고 단추는 오른쪽에 모아서 */
+@media (max-width:720px){.nav-in .brand{margin-right:auto;min-width:0;overflow:hidden;text-overflow:ellipsis}.nav-in .gear{margin-left:0;padding:0 12px;flex:0 0 auto}.nav-in button.gear span{display:none}}
 .dfoot{display:flex;justify-content:space-between;gap:10px;padding:14px 18px;border-top:1px solid var(--line);font:400 13.5px var(--ui)}
 .dfoot a{color:var(--mute)}.dfoot a:first-child{color:var(--acc);font-weight:500}
 .dfoot a:hover{text-decoration:underline}
