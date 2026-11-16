@@ -15,7 +15,6 @@ function groupBy<T>(arr: T[], fn: (x: T) => string): G<T>[] {
 const yearOf = (p: PostSummary) => tripMonth(p).slice(0, 4) || "날짜 미정";
 /** 글 앞 작은 표시: "4일차", 없으면 여행 월 */
 const md = (p: PostSummary) => { const d = dayNo(p.title); if (d !== null) return `${d}일차`; const m = tripMonth(p); return m.length >= 7 ? `${+m.slice(5)}월` : ""; };
-const monthLabel = (m: string) => (m.length >= 7 ? `${m.slice(0, 4)}.${m.slice(5, 7)}` : "월 미정");
 
 export default function Archive({ posts }: { posts: PostSummary[] }) {
   const [q, setQ] = useState("");
@@ -82,7 +81,7 @@ export default function Archive({ posts }: { posts: PostSummary[] }) {
               {!vis.length && <div className="empty">조건에 맞는 글이 없습니다.<br />검색어나 나라 선택을 바꿔 보세요.</div>}
               {years.map((g) => {
                 // 같은 여행 = 같은 여행 연월 + 나라. 최근 여행부터, 여행 안에서는 일차 순
-                const byC = groupBy(g.a, tripKey).sort((x, y) => (x.k < y.k ? 1 : -1)).map((t) => ({ k: t.k, country: t.a[0].trip.country, month: tripMonth(t.a[0]), a: [...t.a].sort(byDay) }));
+                const byC = groupBy(g.a, tripKey).sort((x, y) => (x.k < y.k ? 1 : -1)).map((t) => ({ k: t.k, country: t.a[0].trip.country, year: tripMonth(t.a[0]).slice(0, 4), a: [...t.a].sort(byDay) }));
                 const cities = (a: PostSummary[]) => [...new Set(a.map((p) => p.trip.city))].join(" · ");
                 return (
                   <section key={g.k} className={"yr" + (shut[g.k] ? " shut" : "")} id={"y" + g.k} data-y={g.k}>
@@ -95,7 +94,7 @@ export default function Archive({ posts }: { posts: PostSummary[] }) {
                       <div className="ybody">
                         {byC.map((c) => (
                           <div className="crow" key={c.k}>
-                            <div className="cn">{c.country}<span className="ce">{countryEn(c.country)}</span><span className="cc">{monthLabel(c.month)} 여행 · {c.a.length}편</span></div>
+                            <div className="cn">{c.country}<span className="ce">{countryEn(c.country)}</span><span className="cc">{c.year ? `${c.year}년 여행` : "연도 미정"} · {c.a.length}편</span></div>
                             <div>{[{ k: c.k, a: c.a }].map((ct) => (
                               <div className="cg" key={ct.k}>
                                 <div className="city">{cities(ct.a)}</div>

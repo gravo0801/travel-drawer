@@ -601,7 +601,7 @@ export default function PdfImporter() {
             {d.error && <p className="bad wide">{d.error}</p>}
             {d.warnings.map((w) => <p key={w} className="warn wide">{w}</p>)}
             <label className="wide">제목<input value={d.meta.title} placeholder="비어 있음" onChange={(e) => setMeta({ title: e.target.value })} /></label>
-            <label className={!d.meta.date || dateOk(d.meta.date) ? "" : "need"}>여행 연월 <small>같은 연월·나라의 글은 한 여행으로 묶임</small><input type="month" value={d.meta.date.slice(0, 7)} placeholder="2026-01" onChange={(e) => setMeta({ date: normDate(e.target.value).slice(0, 7) })} /></label>
+            <label className={!d.meta.date || /^\d{4}(-\d{2})?/.test(d.meta.date) ? "" : "need"}>여행 연도 <small>같은 연도·나라의 글은 한 여행으로 묶임</small><input value={d.meta.date} placeholder="예: 2026" inputMode="numeric" maxLength={7} onChange={(e) => setMeta({ date: e.target.value.replace(/[^\d-]/g, "").slice(0, 7) })} /></label>
             <label>나라<input value={d.meta.country} placeholder="비어 있음" onChange={(e) => setMeta({ country: e.target.value })} /></label>
             <label>도시<input value={d.meta.city} placeholder="비어 있음" onChange={(e) => setMeta({ city: e.target.value })} /></label>
             <label>분류<input value={d.meta.category} onChange={(e) => setMeta({ category: e.target.value })} /></label>

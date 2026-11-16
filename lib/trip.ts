@@ -1,4 +1,4 @@
-/** 같은 여행 묶기: 여행 연월(YYYY-MM) + 나라 */
+/** 같은 여행 묶기: 여행 연도 + 나라 (월은 묶음에 쓰지 않음) */
 type T = { trip: { date: string; country: string }; series?: string; title?: string };
 
 /** 여행 연월. 날짜 칸이 연도뿐이거나 비었으면 여행 묶음 이름(2026.01 …)에서 찾음 */
@@ -9,7 +9,8 @@ export function tripMonth(p: T): string {
   if (s) return `${s[1]}-${s[2].padStart(2, "0")}`;
   return d.slice(0, 4);
 }
-export const tripKey = (p: T) => `${tripMonth(p)}|${p.trip.country}`;
+export const tripYear = (p: T) => tripMonth(p).slice(0, 4);
+export const tripKey = (p: T) => `${tripYear(p)}|${p.trip.country}`;
 /** 제목의 "N일차" */
 export function dayNo(title = ""): number | null {
   const m = title.match(/(\d{1,2})\s*일\s*차/);
@@ -23,4 +24,4 @@ export function byDay<P extends T & { addedAt?: string; publishedAt?: string }>(
   if (da === null && db !== null) return 1;
   return (a.trip.date || "").localeCompare(b.trip.date || "") || (a.addedAt ?? a.publishedAt ?? "").localeCompare(b.addedAt ?? b.publishedAt ?? "");
 }
-export const seriesName = (month: string, country: string) => (/^\d{4}-\d{2}$/.test(month) && country ? `${month.replace("-", ".")} ${country}` : "");
+export const seriesName = (date: string, country: string) => (/^\d{4}/.test(date) && country ? `${date.slice(0, 4)} ${country}` : "");
