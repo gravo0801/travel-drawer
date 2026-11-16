@@ -367,11 +367,11 @@
   }
  ],
  "trip": {
-  "date": "2026-01-23",
+  "date": "2026-01",
   "country": "태국",
   "city": "방콕"
  },
- "series": "2026.01 방콕",
+ "series": "2026.01 태국",
  "cover": "/media/posts/224187426392/img-002.jpg",
  "source": "naver"
 }
