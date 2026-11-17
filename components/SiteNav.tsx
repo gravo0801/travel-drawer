@@ -28,7 +28,7 @@ export default function SiteNav({ solid = false, editId }: { solid?: boolean; ed
     <header className={"nav" + (pill ? " pill" : "")}>
       <div className="nav-in">
         <Link className="brand" href="/"><i aria-hidden="true" />{SITE.name}</Link>
-        <nav aria-label="주요 메뉴"><Link href="/#recent">최근 여행기</Link><Link href="/#archive">전체 글 찾기</Link></nav>
+        <nav aria-label="주요 메뉴"><Link href="/">대시보드</Link><Link href="/blog#recent">최근 여행기</Link><Link href="/blog#archive">전체 글 찾기</Link></nav>
         {/* 늘 보임: 로그인 전이면 글쓰기 화면에서 로그인부터 */}
         {editId
           ? <Link className="gear write" href={`/write?edit=${editId}`} aria-label="이 글 수정" title="이 글 수정 (단축키 E)">
