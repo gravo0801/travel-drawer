@@ -1,7 +1,7 @@
 
 /** 관리자 Firebase UID (비밀 아님). ADMIN_UIDS 환경변수가 있으면 그것을 우선 사용. */
 const DEFAULT_ADMIN_UIDS = "8Lh6Z3b4J2aGm6LvqMPitBx9yZe2";
-const adminList = () => (process.env.ADMIN_UIDS || DEFAULT_ADMIN_UIDS).split(",").map((s) => s.trim()).filter(Boolean);
+export const adminList = () => (process.env.ADMIN_UIDS || DEFAULT_ADMIN_UIDS).split(",").map((s) => s.trim()).filter(Boolean);
 
 /**
  * 관리자 확인: 브라우저가 보낸 Firebase 로그인 토큰을 Google에 확인하고,

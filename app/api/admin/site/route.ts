@@ -47,6 +47,7 @@ export async function POST(req: Request) {
     const o = old.slots[k]?.src;
     if (o && o.startsWith("/media/site/custom/") && next.slots[k]?.src !== o) files.push({ path: "public" + o, sha: null });
   }
+  if (old.dashboard) next.dashboard = old.dashboard; // 대시보드 설정은 그대로 둠
   files.push({ path: "content/site.json", content: JSON.stringify(next, null, 1) + "\n" });
 
   try {

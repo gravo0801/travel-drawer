@@ -31,5 +31,23 @@ export const SITE = {
 
 /** 모든 기기에 공통으로 적용되는 사이트 설정 (content/site.json, 저장소에 커밋됨) */
 export type SiteSlot = { src: string; w: number; h: number; fx: number; fy: number };
-export type SiteConfig = { v: string; theme: Theme; align: Align; fonts: { t: string; b: string }; slots: Partial<Record<SlotKey, SiteSlot>> };
+export type SiteConfig = { v: string; theme: Theme; align: Align; fonts: { t: string; b: string }; slots: Partial<Record<SlotKey, SiteSlot>>; dashboard?: Partial<DashCfg> };
 export const SITE_DEFAULT: SiteConfig = { v: "", theme: "dark", align: "center", fonts: { t: "pre", b: "pre" }, slots: {} };
+
+/** 개인 대시보드(/me)의 화면 설정 — 꾸밈 정보만. 여행 일정·메모 같은 사적인 내용은 넣지 않음(저장소가 공개). */
+export type DashCfg = {
+  v: string;
+  palette: string;
+  accent: string;
+  titleFont: string;
+  bodyFont: string;
+  size: "s" | "m" | "l";
+  widgets: string[];
+  hero: string;
+  heroCaption: string;
+};
+export const DASH_WIDGETS = ["trips", "migrate", "timeline", "apps", "memo"] as const;
+export const DASH_DEFAULT: DashCfg = {
+  v: "", palette: "sage", accent: "", titleFont: "nserif", bodyFont: "pre", size: "m",
+  widgets: [...DASH_WIDGETS], hero: "site", heroCaption: "",
+};
