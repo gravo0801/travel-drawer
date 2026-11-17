@@ -14,5 +14,22 @@
    "fx": 50,
    "fy": 50
   }
+ },
+ "dashboard": {
+  "v": "2026-11-17T02:56:53.453Z",
+  "palette": "peach",
+  "accent": "",
+  "titleFont": "nserif",
+  "bodyFont": "pre",
+  "size": "m",
+  "widgets": [
+   "trips",
+   "migrate",
+   "timeline",
+   "apps",
+   "memo"
+  ],
+  "hero": "site",
+  "heroCaption": ""
  }
 }
