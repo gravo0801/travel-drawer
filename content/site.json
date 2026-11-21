@@ -16,8 +16,8 @@
   }
  },
  "dashboard": {
-  "v": "2026-11-21T02:45:37.000Z",
-  "palette": "peach",
+  "v": "2026-11-21T02:52:46.424Z",
+  "palette": "ocean",
   "accent": "",
   "titleFont": "nserif",
   "bodyFont": "pre",
@@ -30,7 +30,7 @@
    "apps",
    "memo"
   ],
-  "hero": "site",
+  "hero": "post:pmwouv8fv",
   "heroCaption": ""
  }
 }
