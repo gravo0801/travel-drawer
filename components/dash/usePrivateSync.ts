@@ -79,14 +79,14 @@ export function usePrivateSync(user: User | null) {
       });
       revision.current = nextRevision;
       localStorage.setItem(revisionKey(uid), String(nextRevision));
-      if (version.current === atVersion) {
+      if (enabled.current && version.current === atVersion) {
         localStorage.removeItem(dirtyKey(uid));
         setStatus("클라우드 동기화 완료"); setMessage("");
       }
     } catch (error) {
       setStatus("이 기기에 저장");
       setMessage(`클라우드 저장을 멈췄습니다. ${(error as Error).message} 로컬 기록은 보존됩니다.`);
-      enabled.current = false;
+      enabled.current = false; setCloudOn(false);
     } finally {
       saving.current = false;
       if (enabled.current && version.current !== atVersion) timer.current = setTimeout(saveCloud, 700);
@@ -123,10 +123,10 @@ export function usePrivateSync(user: User | null) {
     setStatus("클라우드 확인 중");
     const unsubscribe = onSnapshot(cloudRef(uid), (snap) => {
       if (localStorage.getItem(dirtyKey(uid)) === "1") return;
-      if (!snap.exists()) { setStatus("이 기기에 저장"); setMessage("클라우드 기록이 없습니다. 로컬 기록은 보존됩니다."); enabled.current = false; return; }
+      if (!snap.exists()) { setStatus("이 기기에 저장"); setMessage("클라우드 기록이 없습니다. 로컬 기록은 보존됩니다."); enabled.current = false; setCloudOn(false); return; }
       const remote = parse(snap.data().data);
       const remoteRevision = Number(snap.data().revision) || 0;
-      if (!remote) { setStatus("이 기기에 저장"); setMessage("클라우드 기록 형식이 올바르지 않아 동기화를 멈췄습니다."); enabled.current = false; return; }
+      if (!remote) { setStatus("이 기기에 저장"); setMessage("클라우드 기록 형식이 올바르지 않아 동기화를 멈췄습니다."); enabled.current = false; setCloudOn(false); return; }
       if (remoteRevision < revision.current) return;
       if (remoteRevision === revision.current && !same(current.current, remote)) {
         setStatus("충돌 확인 필요"); setMessage("두 기기의 기록이 다릅니다. 백업 후 사용할 기록을 선택해 주세요.");
@@ -139,7 +139,7 @@ export function usePrivateSync(user: User | null) {
       localStorage.setItem(localKey(uid), serialized);
       currentSerialized.current = serialized;
       setStatus("클라우드 동기화 완료"); setMessage("");
-    }, (error) => { setStatus("이 기기에 저장"); setMessage(`클라우드 접근 실패 (${error.code}). 로컬 기록은 보존됩니다.`); enabled.current = false; });
+    }, (error) => { setStatus("이 기기에 저장"); setMessage(`클라우드 접근 실패 (${error.code}). 로컬 기록은 보존됩니다.`); enabled.current = false; setCloudOn(false); });
     return () => { unsubscribe(); if (timer.current) clearTimeout(timer.current); };
   }, [uid, cloudOn]);
 
