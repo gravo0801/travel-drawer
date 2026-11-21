@@ -16,7 +16,7 @@
   }
  },
  "dashboard": {
-  "v": "2026-11-21T02:52:46.424Z",
+  "v": "2026-11-21T03:01:28.000Z",
   "palette": "ocean",
   "accent": "",
   "titleFont": "nserif",
@@ -24,6 +24,7 @@
   "size": "m",
   "widgets": [
    "mt",
+   "gc",
    "trips",
    "migrate",
    "timeline",
