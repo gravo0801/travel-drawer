@@ -7,6 +7,7 @@ import { DASH_DEFAULT, DASH_WIDGETS, FONTS, type DashCfg, type WxCity } from "@/
 import { tripKey, tripMonth } from "@/lib/trip";
 import Icon from "./Icon";
 import WeatherW from "./Weather";
+import { useRefreshPulse } from "./useRefreshPulse";
 import { VoucherWidget, VoucherManager } from "./VoucherLedger";
 import "./dash.css";
 
@@ -394,17 +395,18 @@ const won = (n: number) => Math.round(n).toLocaleString("ko-KR");
 function MtW({ user }: { user: User | null }) {
   const [d, setD] = useState<MtData | null>(null);
   const [err, setErr] = useState("");
+  const refreshTick = useRefreshPulse(5 * 60_000);
   useEffect(() => {
     if (!user) return; let off = false;
     (async () => {
       try {
         const r = await fetch("/api/admin/finance", { headers: { authorization: `Bearer ${await user.getIdToken()}` }, cache: "no-store" });
         const j = await r.json();
-        if (off) return; if (!r.ok) setErr(j.error || "불러오지 못했습니다."); else setD(j);
+        if (off) return; if (!r.ok) setErr(j.error || "불러오지 못했습니다."); else { setD(j); setErr(""); }
       } catch { if (!off) setErr("네트워크 오류로 불러오지 못했습니다."); }
     })();
     return () => { off = true; };
-  }, [user]);
+  }, [user, refreshTick]);
   const app = "https://gravo-finance.vercel.app/";
   if (err) return <div className="mt"><p className="mt-note">{err}</p><a className="xbtn line xsm" href={app} target="_blank" rel="noopener"><Icon n="open" size={15} />마통 앱 열기</a></div>;
   if (!d) return <div className="mt"><p className="mt-note">불러오는 중…</p></div>;
@@ -496,6 +498,7 @@ type GEv = { title: string; start: string; end: string; allDay: boolean; cal: nu
 function useCal(user: User | null, from: string, to: string) {
   const [ev, setEv] = useState<GEv[] | null>(null);
   const [err, setErr] = useState("");
+  const refreshTick = useRefreshPulse(5 * 60_000);
   useEffect(() => {
     if (!user) return; let off = false; setEv(null); setErr("");
     (async () => {
@@ -506,7 +509,7 @@ function useCal(user: User | null, from: string, to: string) {
       } catch { if (!off) setErr("네트워크 오류로 불러오지 못했습니다."); }
     })();
     return () => { off = true; };
-  }, [user, from, to]);
+  }, [user, from, to, refreshTick]);
   return { ev, err };
 }
 const evDay = (e: GEv, d: string) => d >= e.start.slice(0, 10) && d <= e.end.slice(0, 10);
