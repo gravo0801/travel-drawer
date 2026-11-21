@@ -485,3 +485,15 @@ body:has(.dash) .drawer,body:has(.dash) .scrim{display:none!important}
 .tl li .x,.dday .x{opacity:1}
 @media (hover:hover){.tl li .x{opacity:0}.tl li:hover .x,.tl li:focus-within .x{opacity:1}}
 .dday .x+.x{margin-left:0}
+
+.private-sync{margin:12px 24px 0;border:1px solid var(--line);border-radius:12px;background:var(--card2);color:var(--ink)}
+.private-sync summary{display:flex;align-items:center;gap:8px;padding:12px 16px;cursor:pointer;font-size:13px;font-weight:600;list-style:none}
+.private-sync summary::-webkit-details-marker{display:none}
+.private-sync summary span{margin-left:auto;color:var(--acc);font-weight:500}
+.private-sync-body{padding:0 16px 16px;font-size:13px;color:var(--mute)}
+.private-sync-actions,.private-sync-choice{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px}
+.private-sync-actions label{cursor:pointer}
+.private-sync-choice{padding:12px;border:1px solid var(--line);border-radius:10px}
+.private-sync-choice p{flex-basis:100%;margin:0}
+.private-sync-message{margin:10px 0 0;color:var(--acc)}
+@media(max-width:760px){.private-sync{margin:10px 12px 0}.private-sync summary{flex-wrap:wrap}.private-sync summary span{margin-left:0}}
