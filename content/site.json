@@ -16,10 +16,10 @@
   }
  },
  "dashboard": {
-  "v": "2026-11-21T13:02:15.973Z",
+  "v": "2026-11-21T13:02:26.259Z",
   "palette": "ocean",
   "accent": "",
-  "titleFont": "nserif",
+  "titleFont": "nsans",
   "bodyFont": "pre",
   "size": "m",
   "widgets": [
