@@ -8,12 +8,12 @@ import { tripKey, tripMonth } from "@/lib/trip";
 import Icon from "./Icon";
 import WeatherW from "./Weather";
 import { useRefreshPulse } from "./useRefreshPulse";
+import { usePrivateSync, type PrivateData, type Trip } from "./usePrivateSync";
 import { VoucherWidget, VoucherManager } from "./VoucherLedger";
 import "./dash.css";
 
 export type DPost = { id: string; title: string; trip: { date: string; country: string; city: string }; cover: string | null; photoCount: number; addedAt: string };
-type Trip = { id: string; name: string; start: string; end: string };
-type Private = { trips: Trip[]; memo: string };
+type Private = PrivateData;
 type Page = "home" | "calendar" | "vouchers";
 
 /* ── 분위기(팔레트) ── 밝은 배경 2색 · 포인트 · 사이드바 · 어두운 화면용 포인트 */
@@ -69,20 +69,20 @@ export default function Dashboard({ posts, dash, siteHero, admins, total }: { po
   /* ── 꾸밈 설정: 모든 기기 공통(site.json) + 이 기기에서 바꾼 값(저장 전) ── */
   const [cfg, setCfgS] = useState<DashCfg>(dash);
   const [dark, setDark] = useState(false);
-  const [priv, setPrivS] = useState<Private>({ trips: [], memo: "" });
+  const privateStore = usePrivateSync(user);
+  const priv = privateStore.data;
+  const setPriv = privateStore.update;
   const [page, setPage] = useState<Page>("home");
   const [dlg, setDlg] = useState<"" | "design" | "widgets">("");
   useEffect(() => {
     const loc = read<{ base: string; cfg: DashCfg } | null>("drawer.cfg.v2", null);
     if (loc && loc.base === dash.v) setCfgS({ ...DASH_DEFAULT, ...loc.cfg });
     setDark(read("drawer.dark", false));
-    setPrivS({ trips: [], memo: "", ...read<Partial<Private>>("drawer.private.v1", {}) });
     const h = () => setPage(location.hash === "#calendar" ? "calendar" : location.hash === "#vouchers" ? "vouchers" : "home");
     h(); window.addEventListener("hashchange", h);
     return () => window.removeEventListener("hashchange", h);
   }, [dash.v]);
   const setCfg = (c: Partial<DashCfg>) => setCfgS((o) => { const n = { ...o, ...c }; write("drawer.cfg.v2", { base: dash.v, cfg: n }); return n; });
-  const setPriv = (p: Partial<Private>) => setPrivS((o) => { const n = { ...o, ...p }; write("drawer.private.v1", n); return n; });
   /** 날씨 프리셋 도시: 저장된 공통 설정(dash)에 도시 목록만 바꿔 모든 기기에 저장 */
   const saveCities = async (cities: WxCity[]) => {
     setCfg({ cities });
@@ -147,8 +147,9 @@ export default function Dashboard({ posts, dash, siteHero, admins, total }: { po
             <button className="ibtn" onClick={toggleDark} aria-label={dark ? "밝은 화면" : "어두운 화면"} title={dark ? "밝은 화면" : "어두운 화면"}><Icon n={dark ? "sun" : "moon"} /></button>
           </div>
         </header>
+        <PrivateControls store={privateStore} />
         {page === "home"
-          ? <Overview user={user} saveCities={saveCities} posts={posts} cfg={cfg} siteHero={siteHero} total={total} name={name} priv={priv} setPriv={setPriv} setCfg={setCfg} onWidgets={() => setDlg("widgets")} onVouchers={() => go("vouchers")} />
+          ? <Overview user={user} saveCities={saveCities} posts={posts} cfg={cfg} siteHero={siteHero} total={total} name={name} priv={priv} setPriv={setPriv} storageStatus={privateStore.status} setCfg={setCfg} onWidgets={() => setDlg("widgets")} onVouchers={() => go("vouchers")} />
           : page === "calendar" ? <CalendarPage user={user} trips={priv.trips} /> : <VoucherManager user={user} />}
       </div>
 
@@ -165,6 +166,26 @@ export default function Dashboard({ posts, dash, siteHero, admins, total }: { po
         tab={dlg} close={() => setDlg("")} user={user} saved={dash} />}
     </div>
   );
+}
+
+function PrivateControls({ store }: { store: ReturnType<typeof usePrivateSync> }) {
+  return <details className="private-sync">
+    <summary><Icon n="lock" size={15} /> 여행 일정·메모: {store.status} <span>백업·동기화 관리</span></summary>
+    <div className="private-sync-body">
+      <p>현재 기록은 이 기기에 보관됩니다. 클라우드 연결 전에 JSON 백업을 내려받아 주세요.</p>
+      <div className="private-sync-actions">
+        <button type="button" className="xbtn line xsm" onClick={store.exportBackup}>JSON 백업 내려받기</button>
+        <label className="xbtn line xsm">백업 가져오기<input type="file" accept="application/json,.json" hidden onChange={(e) => { const file = e.target.files?.[0]; if (file) void store.importBackup(file); e.target.value = ""; }} /></label>
+        <button type="button" className="xbtn xpri xsm" disabled={store.busy} onClick={store.connect}>클라우드 기록 확인</button>
+      </div>
+      {store.choice && <div className="private-sync-choice">
+        <p>사용할 기록을 선택해 주세요. 현재 기기의 기록은 별도로 보관됩니다.</p>
+        <button type="button" className="xbtn line xsm" disabled={store.busy} onClick={() => void store.choose("local")}>이 기기 기록을 클라우드에 저장</button>
+        {store.choice.exists && <button type="button" className="xbtn line xsm" disabled={store.busy} onClick={() => void store.choose("cloud")}>클라우드 기록을 이 기기로 가져오기</button>}
+      </div>}
+      {store.message && <p role="status" className="private-sync-message">{store.message}</p>}
+    </div>
+  </details>;
 }
 
 /* ───────────── 잠금 화면 ───────────── */
@@ -193,8 +214,8 @@ function Gate({ state, user, err, hero, style, onLogin, onOut }: { state: string
 }
 
 /* ───────────── 오버뷰 ───────────── */
-function Overview({ user, saveCities, posts, cfg, siteHero, total, name, priv, setPriv, setCfg, onWidgets, onVouchers }: {
-  user: User | null; saveCities: (c: WxCity[]) => Promise<string>; posts: DPost[]; cfg: DashCfg; siteHero: string; total: number; name: string; priv: Private; setPriv: (p: Partial<Private>) => void; setCfg: (c: Partial<DashCfg>) => void; onWidgets: () => void; onVouchers: () => void;
+function Overview({ user, saveCities, posts, cfg, siteHero, total, name, priv, setPriv, storageStatus, setCfg, onWidgets, onVouchers }: {
+  user: User | null; saveCities: (c: WxCity[]) => Promise<string>; posts: DPost[]; cfg: DashCfg; siteHero: string; total: number; name: string; priv: Private; setPriv: (p: Partial<Private>) => void; storageStatus: string; setCfg: (c: Partial<DashCfg>) => void; onWidgets: () => void; onVouchers: () => void;
 }) {
   const now = kst(), h = now.getHours();
   const hello = h < 5 ? "고요한 밤이에요" : h < 11 ? "좋은 아침이에요" : h < 17 ? "좋은 오후예요" : h < 22 ? "편안한 저녁이에요" : "고요한 밤이에요";
@@ -209,11 +230,11 @@ function Overview({ user, saveCities, posts, cfg, siteHero, total, name, priv, s
     wx: <WeatherW cities={cfg.cities ?? []} saveCities={saveCities} />,
     mt: <MtW user={user} />,
     gc: <GcW user={user} />,
-    trips: <TripsW trips={priv.trips} setTrips={(trips) => setPriv({ trips })} />,
+    trips: <TripsW trips={priv.trips} setTrips={(trips) => setPriv({ trips })} storageStatus={storageStatus} />,
     migrate: <MigrateW done={posts.length} total={total} />,
     timeline: <TimelineW posts={posts} />,
     apps: <AppsW />,
-    memo: <MemoW memo={priv.memo} setMemo={(memo) => setPriv({ memo })} />,
+    memo: <MemoW memo={priv.memo} setMemo={(memo) => setPriv({ memo })} storageStatus={storageStatus} />,
     vouchers: <VoucherWidget user={user} onOpen={onVouchers} />,
   };
   const on = cfg.widgets.filter((w) => W[w]);
@@ -326,7 +347,7 @@ function RangeCalendar({ start, end, pick, onPick }: { start: string; end: strin
 type TripForm = { id: string; name: string; start: string; end: string };
 const blank: TripForm = { id: "", name: "", start: "", end: "" };
 
-function TripsW({ trips, setTrips }: { trips: Trip[]; setTrips: (t: Trip[]) => void }) {
+function TripsW({ trips, setTrips, storageStatus }: { trips: Trip[]; setTrips: (t: Trip[]) => void; storageStatus: string }) {
   const today = ymd(kst());
   const [f, setF] = useState<TripForm | null>(null);      // null = 폼 닫힘, id가 비어 있으면 새 여행, 있으면 수정
   const [pick, setPick] = useState<"start" | "end">("start");
@@ -384,7 +405,7 @@ function TripsW({ trips, setTrips }: { trips: Trip[]; setTrips: (t: Trip[]) => v
           <li key={t.id}><b>{t.name}</b><small>{dot(t.start).slice(2)}</small>{editBtn(t)}
             <button className="x" aria-label={`${t.name} 지우기`} onClick={() => setTrips(trips.filter((x) => x.id !== t.id))}><Icon n="close" size={14} /></button></li>
         ))}</ul></details>}
-      <p className="priv"><Icon n="lock" size={13} />이 기기에만 저장 · 공개되지 않음</p>
+      <p className="priv"><Icon n="lock" size={13} />{storageStatus} · 공개되지 않음</p>
     </div>
   );
 }
@@ -483,11 +504,11 @@ function AppsW() {
   );
 }
 
-function MemoW({ memo, setMemo }: { memo: string; setMemo: (m: string) => void }) {
+function MemoW({ memo, setMemo, storageStatus }: { memo: string; setMemo: (m: string) => void; storageStatus: string }) {
   return (
     <div className="memo">
       <textarea value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="오늘 기억하고 싶은 한 가지…" aria-label="메모" />
-      <p className="priv"><Icon n="lock" size={13} />이 기기에만 저장 · 공개되지 않음</p>
+      <p className="priv"><Icon n="lock" size={13} />{storageStatus} · 공개되지 않음</p>
     </div>
   );
 }
