@@ -30,8 +30,8 @@ const APPS = [
   { n: "EndoApp", sub: "내시경 업무", icon: "scope", hue: "violet", url: "https://gravo0801.github.io/endoapp/" },
   { n: "Google 캘린더", sub: "일정", icon: "calendar", hue: "amber", url: "https://calendar.google.com/" },
 ];
-const WNAME: Record<string, string> = { mt: "마통 잔액", trips: "다음 여행", migrate: "블로그 이전", timeline: "여행 연표", apps: "나의 앱", memo: "메모" };
-const WICON: Record<string, string> = { mt: "chart", trips: "plane", migrate: "move", timeline: "globe", apps: "widgets", memo: "note" };
+const WNAME: Record<string, string> = { mt: "마통 잔액", gc: "오늘 일정", trips: "다음 여행", migrate: "블로그 이전", timeline: "여행 연표", apps: "나의 앱", memo: "메모" };
+const WICON: Record<string, string> = { mt: "chart", gc: "calendar", trips: "plane", migrate: "move", timeline: "globe", apps: "widgets", memo: "note" };
 
 const fam = (id: string) => (FONTS.find((f) => f.id === id) ?? FONTS[0]).family;
 const kst = () => new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
@@ -135,7 +135,7 @@ export default function Dashboard({ posts, dash, siteHero, admins, total }: { po
         </header>
         {page === "home"
           ? <Overview user={user} posts={posts} cfg={cfg} siteHero={siteHero} total={total} name={name} priv={priv} setPriv={setPriv} setCfg={setCfg} onWidgets={() => setDlg("widgets")} />
-          : <CalendarPage trips={priv.trips} />}
+          : <CalendarPage user={user} trips={priv.trips} />}
       </div>
 
       <nav className="tabbar">
@@ -192,6 +192,7 @@ function Overview({ user, posts, cfg, siteHero, total, name, priv, setPriv, setC
 
   const W: Record<string, React.ReactNode> = {
     mt: <MtW user={user} />,
+    gc: <GcW user={user} />,
     trips: <TripsW trips={priv.trips} setTrips={(trips) => setPriv({ trips })} />,
     migrate: <MigrateW done={posts.length} total={total} />,
     timeline: <TimelineW posts={posts} />,
@@ -413,17 +414,61 @@ function MemoW({ memo, setMemo }: { memo: string; setMemo: (m: string) => void }
 }
 
 /* ───────────── 캘린더 ───────────── */
-function CalendarPage({ trips }: { trips: Trip[] }) {
+type GEv = { title: string; start: string; end: string; allDay: boolean; cal: number; where?: string };
+/** 구글 캘린더 일정 (관리자 전용 API). 기간이 바뀔 때마다 다시 불러옵니다. */
+function useCal(user: User | null, from: string, to: string) {
+  const [ev, setEv] = useState<GEv[] | null>(null);
+  const [err, setErr] = useState("");
+  useEffect(() => {
+    if (!user) return; let off = false; setEv(null); setErr("");
+    (async () => {
+      try {
+        const r = await fetch(`/api/admin/calendar?from=${from}&to=${to}`, { headers: { authorization: `Bearer ${await user.getIdToken()}` }, cache: "no-store" });
+        const j = await r.json();
+        if (off) return; if (!r.ok) setErr(j.error || "불러오지 못했습니다."); else setEv(j.events);
+      } catch { if (!off) setErr("네트워크 오류로 불러오지 못했습니다."); }
+    })();
+    return () => { off = true; };
+  }, [user, from, to]);
+  return { ev, err };
+}
+const evDay = (e: GEv, d: string) => d >= e.start.slice(0, 10) && d <= e.end.slice(0, 10);
+const evTime = (e: GEv) => (e.allDay ? "" : e.start.slice(11, 16));
+const addDays = (d: string, n: number) => ymd(new Date(new Date(d + "T00:00").getTime() + n * 864e5));
+const WD = ["일", "월", "화", "수", "목", "금", "토"];
+
+function GcW({ user }: { user: User | null }) {
+  const today = ymd(kst()), to = addDays(today, 6);
+  const { ev, err } = useCal(user, today, to);
+  if (err) return <p className="mt-note">{err}</p>;
+  if (!ev) return <p className="mt-note">불러오는 중…</p>;
+  const rows = Array.from({ length: 7 }, (_, i) => addDays(today, i)).map((d) => ({ d, list: ev.filter((e) => evDay(e, d)) })).filter((r) => r.list.length);
+  if (!rows.length) return <p className="mt-note">앞으로 7일 동안 잡힌 일정이 없어요.</p>;
+  return (
+    <ul className="gc">
+      {rows.slice(0, 4).map(({ d, list }) => (
+        <li key={d}>
+          <span className={"gd" + (d === today ? " now" : "")}><b>{+d.slice(8)}</b><small>{d === today ? "오늘" : WD[new Date(d + "T00:00").getDay()]}</small></span>
+          <span className="gl">{list.slice(0, 3).map((e, i) => <span key={i} className={"gi c" + (e.cal % 4)}>{evTime(e) && <em>{evTime(e)}</em>}{e.title}</span>)}{list.length > 3 && <small>외 {list.length - 3}건</small>}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function CalendarPage({ trips, user }: { trips: Trip[]; user: User | null }) {
   const t = kst();
   const [m, setM] = useState(new Date(t.getFullYear(), t.getMonth(), 1));
   const today = ymd(t);
   const last = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate();
   const cells: (string | null)[] = [...Array(m.getDay()).fill(null), ...Array.from({ length: last }, (_, i) => ymd(new Date(m.getFullYear(), m.getMonth(), i + 1)))];
+  const first = ymd(new Date(m.getFullYear(), m.getMonth(), 1)), lastD = ymd(new Date(m.getFullYear(), m.getMonth() + 1, 0));
+  const { ev: gev, err: gerr } = useCal(user, first, lastD);
   const on = (d: string) => trips.filter((x) => d >= x.start && d <= (x.end || x.start));
   const move = (n: number) => setM(new Date(m.getFullYear(), m.getMonth() + n, 1));
   return (
     <main className="pg">
-      <div className="hello"><div><p className="xeye">Make room for your days</p><h1>{m.getFullYear()}년 <em>{m.getMonth() + 1}월</em></h1><p className="lead">다음 여행 일정이 달력에 표시됩니다.</p></div>
+      <div className="hello"><div><p className="xeye">Make room for your days</p><h1>{m.getFullYear()}년 <em>{m.getMonth() + 1}월</em></h1><p className="lead">구글 캘린더 일정과 다음 여행이 함께 표시됩니다.</p></div>
         <div className="cal-nav">
           <button className="ibtn" onClick={() => move(-1)} aria-label="이전 달"><Icon n="left" /></button>
           <button className="xbtn line xsm" onClick={() => setM(new Date(t.getFullYear(), t.getMonth(), 1))}>오늘</button>
@@ -436,10 +481,12 @@ function CalendarPage({ trips }: { trips: Trip[] }) {
           <div key={d} className={"dc" + (d === today ? " now" : "") + (i % 7 === 0 ? " sun" : i % 7 === 6 ? " sat" : "")}>
             <span className="dn">{+d.slice(8)}</span>
             {on(d).map((x) => <span key={x.id} className={"ev" + (d === x.start ? " st" : "")}>{d === x.start || i % 7 === 0 ? <><Icon n="plane" size={12} />{x.name}</> : " "}</span>)}
+            {(gev ?? []).filter((e) => evDay(e, d)).slice(0, 3).map((e, k) => <span key={k} className={"gi c" + (e.cal % 4)} title={e.title + (e.where ? " · " + e.where : "")}>{evTime(e) && <em>{evTime(e)}</em>}{e.title}</span>)}
+            {(gev ?? []).filter((e) => evDay(e, d)).length > 3 && <small className="gmore">+{(gev ?? []).filter((e) => evDay(e, d)).length - 3}건</small>}
           </div>
         ))}
       </section>
-      <p className="priv cal-note"><Icon n="lock" size={13} />여행 일정은 오버뷰의 ‘다음 여행’에서 추가합니다. Google 캘린더 연결은 다음 단계입니다.</p>
+      <p className="priv cal-note"><Icon n="lock" size={13} />{gerr ? gerr + " " : ""}여행 일정은 오버뷰의 ‘다음 여행’에서, 일반 일정은 구글 캘린더에서 추가·수정합니다.</p>
     </main>
   );
 }

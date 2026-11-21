@@ -46,7 +46,7 @@ export type DashCfg = {
   hero: string;
   heroCaption: string;
 };
-export const DASH_WIDGETS = ["mt", "trips", "migrate", "timeline", "apps", "memo"] as const;
+export const DASH_WIDGETS = ["mt", "gc", "trips", "migrate", "timeline", "apps", "memo"] as const;
 export const DASH_DEFAULT: DashCfg = {
   v: "", palette: "sage", accent: "", titleFont: "nserif", bodyFont: "pre", size: "m",
   widgets: [...DASH_WIDGETS], hero: "site", heroCaption: "",
