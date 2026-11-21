@@ -45,9 +45,12 @@ export type DashCfg = {
   widgets: string[];
   hero: string;
   heroCaption: string;
+  /** 날씨 위젯 프리셋 도시 (도시 이름·좌표는 사적인 정보가 아니어서 공유 설정에 둠) */
+  cities: WxCity[];
 };
-export const DASH_WIDGETS = ["mt", "gc", "trips", "migrate", "timeline", "apps", "memo"] as const;
+export type WxCity = { n: string; c: string; lat: number; lon: number; on: boolean };
+export const DASH_WIDGETS = ["wx", "mt", "gc", "trips", "migrate", "timeline", "apps", "memo"] as const;
 export const DASH_DEFAULT: DashCfg = {
   v: "", palette: "sage", accent: "", titleFont: "nserif", bodyFont: "pre", size: "m",
-  widgets: [...DASH_WIDGETS], hero: "site", heroCaption: "",
+  widgets: [...DASH_WIDGETS], hero: "site", heroCaption: "", cities: [],
 };

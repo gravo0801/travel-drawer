@@ -3,9 +3,10 @@ import { useEffect, useMemo, useState } from "react";
 import { getAuth, onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { firebaseApp } from "@/lib/firebase";
 import { login } from "@/lib/login";
-import { DASH_DEFAULT, DASH_WIDGETS, FONTS, type DashCfg } from "@/lib/site";
+import { DASH_DEFAULT, DASH_WIDGETS, FONTS, type DashCfg, type WxCity } from "@/lib/site";
 import { tripKey, tripMonth } from "@/lib/trip";
 import Icon from "./Icon";
+import WeatherW from "./Weather";
 import "./dash.css";
 
 export type DPost = { id: string; title: string; trip: { date: string; country: string; city: string }; cover: string | null; photoCount: number; addedAt: string };
@@ -30,8 +31,8 @@ const APPS = [
   { n: "EndoApp", sub: "내시경 업무", icon: "scope", hue: "violet", url: "https://gravo0801.github.io/endoapp/" },
   { n: "Google 캘린더", sub: "일정", icon: "calendar", hue: "amber", url: "https://calendar.google.com/" },
 ];
-const WNAME: Record<string, string> = { mt: "마통 잔액", gc: "오늘 일정", trips: "다음 여행", migrate: "블로그 이전", timeline: "여행 연표", apps: "나의 앱", memo: "메모" };
-const WICON: Record<string, string> = { mt: "chart", gc: "calendar", trips: "plane", migrate: "move", timeline: "globe", apps: "widgets", memo: "note" };
+const WNAME: Record<string, string> = { wx: "날씨", mt: "마통 잔액", gc: "오늘 일정", trips: "다음 여행", migrate: "블로그 이전", timeline: "여행 연표", apps: "나의 앱", memo: "메모" };
+const WICON: Record<string, string> = { wx: "sun", mt: "chart", gc: "calendar", trips: "plane", migrate: "move", timeline: "globe", apps: "widgets", memo: "note" };
 
 const fam = (id: string) => (FONTS.find((f) => f.id === id) ?? FONTS[0]).family;
 const kst = () => new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
@@ -80,6 +81,16 @@ export default function Dashboard({ posts, dash, siteHero, admins, total }: { po
   }, [dash.v]);
   const setCfg = (c: Partial<DashCfg>) => setCfgS((o) => { const n = { ...o, ...c }; write("drawer.cfg.v2", { base: dash.v, cfg: n }); return n; });
   const setPriv = (p: Partial<Private>) => setPrivS((o) => { const n = { ...o, ...p }; write("drawer.private.v1", n); return n; });
+  /** 날씨 프리셋 도시: 저장된 공통 설정(dash)에 도시 목록만 바꿔 모든 기기에 저장 */
+  const saveCities = async (cities: WxCity[]) => {
+    setCfg({ cities });
+    if (!user) return "로그인이 필요합니다.";
+    try {
+      const r = await fetch("/api/admin/dashboard", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${await user.getIdToken()}` }, body: JSON.stringify({ ...DASH_DEFAULT, ...dash, cities }) });
+      const j = (await r.json().catch(() => ({}))) as { error?: string };
+      return r.ok ? "저장했습니다. 1~2분 뒤 모든 기기에 반영됩니다." : "저장 실패: " + (j.error ?? r.status);
+    } catch { return "저장 실패: 네트워크 오류"; }
+  };
   const toggleDark = () => setDark((d) => { write("drawer.dark", !d); return !d; });
   const go = (p: Page) => { location.hash = p === "home" ? "" : p; setPage(p); window.scrollTo(0, 0); };
 
@@ -134,7 +145,7 @@ export default function Dashboard({ posts, dash, siteHero, admins, total }: { po
           </div>
         </header>
         {page === "home"
-          ? <Overview user={user} posts={posts} cfg={cfg} siteHero={siteHero} total={total} name={name} priv={priv} setPriv={setPriv} setCfg={setCfg} onWidgets={() => setDlg("widgets")} />
+          ? <Overview user={user} saveCities={saveCities} posts={posts} cfg={cfg} siteHero={siteHero} total={total} name={name} priv={priv} setPriv={setPriv} setCfg={setCfg} onWidgets={() => setDlg("widgets")} />
           : <CalendarPage user={user} trips={priv.trips} />}
       </div>
 
@@ -178,8 +189,8 @@ function Gate({ state, user, err, hero, style, onLogin, onOut }: { state: string
 }
 
 /* ───────────── 오버뷰 ───────────── */
-function Overview({ user, posts, cfg, siteHero, total, name, priv, setPriv, setCfg, onWidgets }: {
-  user: User | null; posts: DPost[]; cfg: DashCfg; siteHero: string; total: number; name: string; priv: Private; setPriv: (p: Partial<Private>) => void; setCfg: (c: Partial<DashCfg>) => void; onWidgets: () => void;
+function Overview({ user, saveCities, posts, cfg, siteHero, total, name, priv, setPriv, setCfg, onWidgets }: {
+  user: User | null; saveCities: (c: WxCity[]) => Promise<string>; posts: DPost[]; cfg: DashCfg; siteHero: string; total: number; name: string; priv: Private; setPriv: (p: Partial<Private>) => void; setCfg: (c: Partial<DashCfg>) => void; onWidgets: () => void;
 }) {
   const now = kst(), h = now.getHours();
   const hello = h < 5 ? "고요한 밤이에요" : h < 11 ? "좋은 아침이에요" : h < 17 ? "좋은 오후예요" : h < 22 ? "편안한 저녁이에요" : "고요한 밤이에요";
@@ -191,6 +202,7 @@ function Overview({ user, posts, cfg, siteHero, total, name, priv, setPriv, setC
   const next = priv.trips.filter((t) => (t.end || t.start) >= ymd(now)).sort((a, b) => a.start.localeCompare(b.start))[0];
 
   const W: Record<string, React.ReactNode> = {
+    wx: <WeatherW cities={cfg.cities ?? []} saveCities={saveCities} />,
     mt: <MtW user={user} />,
     gc: <GcW user={user} />,
     trips: <TripsW trips={priv.trips} setTrips={(trips) => setPriv({ trips })} />,
