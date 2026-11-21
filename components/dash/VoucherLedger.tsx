@@ -25,6 +25,7 @@ const positive = (v: unknown, max = 100) => Math.max(1, Math.min(max, Math.trunc
 const count = (v: unknown, max = 100) => Math.max(0, Math.min(max, Math.trunc(Number(v) || 0)));
 const localKey = (id: string) => `drawer.vouchers.v1.${id}`;
 const cloudKey = (id: string) => `drawer.vouchers.cloud.v1.${id}`;
+const dirtyKey = (id: string) => `drawer.vouchers.dirty.v1.${id}`;
 
 function normalise(input: unknown): Voucher[] {
   if (!Array.isArray(input)) return [];
@@ -92,6 +93,11 @@ function useVoucherStore(user: User | null) {
     const ref = doc(getFirestore(app), "drawer_voucher_ledgers", user.uid);
     const unsub = onSnapshot(ref, (snap) => {
       if (dead || pending.current) return;
+      if (localStorage.getItem(dirtyKey(user.uid)) === "1") {
+        setMode("local");
+        setMessage("이 기기에 동기화되지 않은 변경 사항이 있습니다. JSON 백업 후 '클라우드로 저장'을 눌러 반영하세요.");
+        return;
+      }
       if (snap.exists()) {
         const fresh = normalise(snap.data().items);
         setItems(fresh);
@@ -121,8 +127,10 @@ function useVoucherStore(user: User | null) {
     try {
       const ref = doc(getFirestore(firebaseApp()!), "drawer_voucher_ledgers", user.uid);
       await setDoc(ref, { schema: 1, items: next, updatedAt: serverTimestamp() });
+      localStorage.removeItem(dirtyKey(user.uid));
       setMode("cloud"); setMessage("");
     } catch (e) {
+      localStorage.setItem(dirtyKey(user.uid), "1");
       setMode("local");
       setMessage(`클라우드 저장 실패: ${(e as Error).message}. 로컬에는 저장되었습니다.`);
     } finally { pending.current = false; setBusy(false); }
@@ -144,6 +152,7 @@ function useVoucherStore(user: User | null) {
       try {
         localStorage.setItem(cloudKey(user.uid), "1");
         localStorage.setItem(localKey(user.uid), JSON.stringify(chosen));
+        localStorage.removeItem(dirtyKey(user.uid));
       } catch {}
       setItems(chosen); setCloudOn(true); setMode("cloud"); setMessage("클라우드 연결이 완료되었습니다.");
     } catch (e) {
@@ -196,6 +205,8 @@ export function VoucherManager({ user }: { user: User | null }) {
 
   async function saveBenefit() {
     if (!editing || !editing.issuer.trim() || !editing.title.trim()) { setAlert("카드사와 혜택 이름을 입력해 주세요."); return; }
+    const old = store.items.find(x => x.id === editing.id);
+    if (old && positive(editing.quota) < totals(old).used + totals(old).reserved) { setAlert("총 제공 횟수가 이미 사용·예약된 횟수보다 작을 수 없습니다."); return; }
     const v: Voucher = { ...editing, id: editing.id || uid(), issuer: editing.issuer.trim(), card: editing.card.trim(), title: editing.title.trim(),
       quota: positive(editing.quota), period: editing.period.trim() || String(new Date().getFullYear()), expiresAt: editing.expiresAt, note: editing.note.trim(),
       activities: store.items.find(x => x.id === editing.id)?.activities ?? [] };
@@ -321,6 +332,7 @@ export function VoucherManager({ user }: { user: User | null }) {
       {editing && <div className="scrim2" onClick={() => setEditing(null)}>
         <div className="dlg vch-dialog" role="dialog" aria-modal="true" aria-label="카드 혜택 편집" onClick={e => e.stopPropagation()}>
           <header><div><p className="xeye">Benefit editor</p><h2>{editing.id ? "혜택 수정" : "새 카드 혜택"}</h2></div><button className="ibtn" aria-label="닫기" onClick={() => setEditing(null)}><Icon n="close" /></button></header>
+          {alert && <p className="vch-notice" role="alert" style={{ margin: "12px 24px 0" }}>{alert}</p>}
           <div className="vch-fields">
             <label>카드사 *<input maxLength={60} placeholder="예: KB국민카드" value={editing.issuer} onChange={e => setEditing({ ...editing, issuer: e.target.value })} /></label>
             <label>카드명<input maxLength={100} placeholder="예: ROVL" value={editing.card} onChange={e => setEditing({ ...editing, card: e.target.value })} /></label>
