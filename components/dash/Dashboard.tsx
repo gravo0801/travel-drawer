@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getAuth, onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { firebaseApp } from "@/lib/firebase";
 import { login } from "@/lib/login";
@@ -499,8 +499,11 @@ function useCal(user: User | null, from: string, to: string) {
   const [ev, setEv] = useState<GEv[] | null>(null);
   const [err, setErr] = useState("");
   const refreshTick = useRefreshPulse(5 * 60_000);
+  const shownRange = useRef("");
   useEffect(() => {
-    if (!user) return; let off = false; setEv(null); setErr("");
+    if (!user) return; let off = false; setErr("");
+    const range = `${from}|${to}`;
+    if (shownRange.current !== range) { shownRange.current = range; setEv(null); }
     (async () => {
       try {
         const r = await fetch(`/api/admin/calendar?from=${from}&to=${to}`, { headers: { authorization: `Bearer ${await user.getIdToken()}` }, cache: "no-store" });
