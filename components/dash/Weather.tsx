@@ -6,6 +6,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Icon from "./Icon";
+import { useRefreshPulse } from "./useRefreshPulse";
 import type { WxCity } from "@/lib/site";
 
 type Here = { lat: number; lon: number; name: string; gps: boolean };
@@ -91,6 +92,7 @@ export default function WeatherW({ cities, saveCities }: { cities: WxCity[]; sav
   const [minis, setMinis] = useState<Mini[]>([]);
   const [err, setErr] = useState("");
   const [edit, setEdit] = useState(false);
+  const refreshTick = useRefreshPulse(15 * 60_000);
 
   const shown = useMemo(() => cities.map((c, i) => ({ c, i })).filter((x) => x.c.on), [cities]);
   const target = sel >= 0 && cities[sel] ? { lat: cities[sel].lat, lon: cities[sel].lon, name: cities[sel].n, sub: cities[sel].c } : { lat: here.lat, lon: here.lon, name: here.name, sub: here.gps ? "지금 있는 곳" : "기본 위치" };
@@ -123,14 +125,14 @@ export default function WeatherW({ cities, saveCities }: { cities: WxCity[]; sav
       .then(([n, a]) => { if (!off) { setNow(n); setAir(a); } })
       .catch((e) => { if (!off) setErr((e as Error).message || "날씨를 불러오지 못했습니다."); });
     return () => { off = true; };
-  }, [target.lat, target.lon]);
+  }, [target.lat, target.lon, refreshTick]);
 
   const key = shown.map((x) => `${x.c.lat},${x.c.lon}`).join("|");
   useEffect(() => {
     let off = false;
     fetchMinis(shown.map((x) => x.c)).then((m) => { if (!off) setMinis(m); }).catch(() => {});
     return () => { off = true; };
-  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [key, refreshTick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const w = now ? wmo(now.code, now.day) : null;
   const umbrella = now && (now.pop >= 60 || now.hours.slice(0, 4).some((h) => h.pop >= 60));
