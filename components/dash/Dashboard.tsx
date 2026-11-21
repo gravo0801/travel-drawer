@@ -285,68 +285,100 @@ function Stat({ icon, v, u, l }: { icon: string; v: number | string; u: string; 
 }
 
 /* 다음 여행 D-day (이 기기에만 저장) */
-/** 연·월·일을 직접 고르는 날짜 칸 (브라우저 기본 달력 입력이 좁은 카드에서 잘 안 되는 문제 대응) */
-function DateField({ label, value, onChange, min }: { label: string; value: string; onChange: (v: string) => void; min?: string }) {
-  const y0 = kst().getFullYear();
-  const [y, m, d] = value ? value.split("-").map(Number) : [0, 0, 0];
-  const years = Array.from({ length: 8 }, (_, i) => y0 - 1 + i);
-  const dim = (yy: number, mm: number) => new Date(yy || y0, mm || 1, 0).getDate();
-  const set = (ny: number, nm: number, nd: number) => {
-    if (!ny && !nm && !nd) return onChange("");
-    const yy = ny || min?.slice(0, 4) && +min.slice(0, 4) || y0, mm = nm || 1;
-    const dd = Math.min(nd || 1, dim(yy, mm));
-    onChange(`${yy}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`);
-  };
+const WDK = ["일", "월", "화", "수", "목", "금", "토"];
+const fmtD = (d: string) => (d ? `${dot(d)} (${WDK[new Date(d + "T00:00").getDay()]})` : "선택");
+
+/** 달력에서 출발일→도착일을 차례로 누르는 입력. 요일이 보이고 선택 구간이 색으로 이어집니다. */
+function RangeCalendar({ start, end, pick, onPick }: { start: string; end: string; pick: "start" | "end"; onPick: (d: string) => void }) {
+  const base = pick === "end" && end ? end : start || ymd(kst());
+  const [m, setM] = useState(new Date(+base.slice(0, 4), +base.slice(5, 7) - 1, 1));
+  const today = ymd(kst());
+  const last = new Date(m.getFullYear(), m.getMonth() + 1, 0).getDate();
+  const cells: (string | null)[] = [...Array(m.getDay()).fill(null), ...Array.from({ length: last }, (_, i) => ymd(new Date(m.getFullYear(), m.getMonth(), i + 1)))];
+  const mv = (n: number) => setM(new Date(m.getFullYear(), m.getMonth() + n, 1));
+  const hi = end || start;
   return (
-    <div className="dfield" role="group" aria-label={label}>
-      <span className="dl2">{label}</span>
-      <select aria-label={label + " 연도"} value={y || ""} onChange={(e) => set(+e.target.value, m, d)}>
-        <option value="">년</option>{years.map((v) => <option key={v} value={v}>{v}년</option>)}
-      </select>
-      <select aria-label={label + " 월"} value={m || ""} onChange={(e) => set(y, +e.target.value, d)}>
-        <option value="">월</option>{Array.from({ length: 12 }, (_, i) => i + 1).map((v) => <option key={v} value={v}>{v}월</option>)}
-      </select>
-      <select aria-label={label + " 일"} value={d || ""} onChange={(e) => set(y, m, +e.target.value)}>
-        <option value="">일</option>{Array.from({ length: dim(y, m) }, (_, i) => i + 1).map((v) => <option key={v} value={v}>{v}일</option>)}
-      </select>
+    <div className="tcal" role="group" aria-label={pick === "start" ? "출발일 고르기" : "도착일 고르기"}>
+      <div className="tcal-h">
+        <button type="button" className="ibtn" onClick={() => mv(-12)} aria-label="이전 해"><Icon n="left" size={16} /><Icon n="left" size={16} className="l2" /></button>
+        <button type="button" className="ibtn" onClick={() => mv(-1)} aria-label="이전 달"><Icon n="left" size={18} /></button>
+        <b>{m.getFullYear()}년 {m.getMonth() + 1}월</b>
+        <button type="button" className="ibtn" onClick={() => mv(1)} aria-label="다음 달"><Icon n="right" size={18} /></button>
+        <button type="button" className="ibtn" onClick={() => mv(12)} aria-label="다음 해"><Icon n="right" size={16} /><Icon n="right" size={16} className="l2" /></button>
+      </div>
+      <div className="tcal-g">
+        {WDK.map((w, i) => <span key={w} className={"tw" + (i === 0 ? " sun" : i === 6 ? " sat" : "")}>{w}</span>)}
+        {cells.map((d, i) => d === null ? <span key={"e" + i} /> : (
+          <button type="button" key={d} onClick={() => onPick(d)}
+            className={"td" + (d === today ? " now" : "") + (i % 7 === 0 ? " sun" : i % 7 === 6 ? " sat" : "") + (d === start ? " s" : "") + (d === end ? " e" : "") + (start && hi && d > start && d < hi ? " mid" : "")}
+            aria-label={fmtD(d)} aria-pressed={d === start || d === end}>{+d.slice(8)}</button>
+        ))}
+      </div>
     </div>
   );
 }
 
+type TripForm = { id: string; name: string; start: string; end: string };
+const blank: TripForm = { id: "", name: "", start: "", end: "" };
+
 function TripsW({ trips, setTrips }: { trips: Trip[]; setTrips: (t: Trip[]) => void }) {
   const today = ymd(kst());
-  const [add, setAdd] = useState(false);
-  const [f, setF] = useState({ name: "", start: "", end: "" });
+  const [f, setF] = useState<TripForm | null>(null);      // null = 폼 닫힘, id가 비어 있으면 새 여행, 있으면 수정
+  const [pick, setPick] = useState<"start" | "end">("start");
   const list = trips.filter((t) => (t.end || t.start) >= today).sort((a, b) => a.start.localeCompare(b.start));
+  const past = trips.filter((t) => (t.end || t.start) < today).sort((a, b) => b.start.localeCompare(a.start));
+  const open = (t: TripForm) => { setF(t); setPick("start"); };
+  const bad = !!f && !!f.end && f.end < f.start;
   const save = () => {
-    if (!f.name.trim() || !f.start) return;
-    setTrips([...trips, { id: Date.now().toString(36), name: f.name.trim().slice(0, 30), start: f.start, end: f.end && f.end >= f.start ? f.end : "" }]);
-    setF({ name: "", start: "", end: "" }); setAdd(false);
+    if (!f || !f.name.trim() || !f.start || bad) return;
+    const row: Trip = { id: f.id || Date.now().toString(36), name: f.name.trim().slice(0, 30), start: f.start, end: f.end && f.end > f.start ? f.end : "" };
+    setTrips(f.id ? trips.map((t) => (t.id === f.id ? row : t)) : [...trips, row]);
+    setF(null);
   };
+  const onPick = (d: string) => {
+    if (!f) return;
+    if (pick === "start") { setF({ ...f, start: d, end: f.end && f.end < d ? "" : f.end }); setPick("end"); }
+    else if (d < f.start) setF({ ...f, start: d });      // 도착을 출발보다 앞에 누르면 그 날을 새 출발일로
+    else setF({ ...f, end: d === f.start ? "" : d });
+  };
+  const nights = f && f.start && f.end ? days(f.start, f.end) : 0;
   const [first, ...rest] = list;
   const d = first ? days(today, first.start) : 0;
+  const editBtn = (t: Trip, cls = "x") => <button className={cls} aria-label={`${t.name} 수정`} onClick={() => open({ ...t })}><Icon n="pen" size={15} /></button>;
   return (
     <div className="trips">
       {first ? (
         <div className="dday">
           <div className="dnum">{d > 0 ? <>D<span>−</span>{d}</> : <>여행 중</>}</div>
-          <div><b>{first.name}</b><small>{dot(first.start)}{first.end ? ` – ${dot(first.end).slice(5)}` : ""}{first.end ? ` · ${days(first.start, first.end)}박` : ""}</small></div>
+          <div><b>{first.name}</b><small>{fmtD(first.start)}{first.end ? ` – ${dot(first.end).slice(5)}` : ""}{first.end ? ` · ${days(first.start, first.end)}박` : ""}</small></div>
+          {editBtn(first)}
           <button className="x" aria-label={`${first.name} 지우기`} onClick={() => setTrips(trips.filter((t) => t.id !== first.id))}><Icon n="trash" size={16} /></button>
         </div>
-      ) : !add && <div className="xempty"><Icon n="plane" size={28} /><p>다가오는 여행을 적어 두면<br />남은 날을 세어 드려요.</p></div>}
+      ) : !f && <div className="xempty"><Icon n="plane" size={28} /><p>다가오는 여행을 적어 두면<br />남은 날을 세어 드려요.</p></div>}
       {rest.length > 0 && <ul className="tl">{rest.map((t) => (
         <li key={t.id}><span>D−{days(today, t.start)}</span><b>{t.name}</b><small>{dot(t.start).slice(2)}</small>
+          {editBtn(t)}
           <button className="x" aria-label={`${t.name} 지우기`} onClick={() => setTrips(trips.filter((x) => x.id !== t.id))}><Icon n="close" size={14} /></button></li>
       ))}</ul>}
-      {add ? (
+      {f ? (
         <div className="tform">
           <input placeholder="여행지 (예: 뉴질랜드 남섬)" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} aria-label="여행지" />
-          <DateField label="출발" value={f.start} onChange={(v) => setF({ ...f, start: v, end: f.end && v && f.end < v ? "" : f.end })} />
-          <DateField label="도착" value={f.end} min={f.start} onChange={(v) => setF({ ...f, end: v })} />
-          {f.end && f.start && f.end < f.start && <p className="tform-err">도착일이 출발일보다 빠릅니다.</p>}
-          <div className="xrow"><button className="xbtn line xsm" onClick={() => setAdd(false)}>취소</button><button className="xbtn xpri xsm" onClick={save} disabled={!f.name.trim() || !f.start || (!!f.end && f.end < f.start)}>추가</button></div>
+          <div className="tsel">
+            <button type="button" className={pick === "start" ? "on" : ""} onClick={() => setPick("start")}><small>출발</small><b>{fmtD(f.start)}</b></button>
+            <Icon n="arrow" size={16} />
+            <button type="button" className={pick === "end" ? "on" : ""} onClick={() => setPick("end")}><small>도착</small><b>{f.end ? fmtD(f.end) : "당일 / 선택"}</b></button>
+          </div>
+          <RangeCalendar key={pick} start={f.start} end={f.end} pick={pick} onPick={onPick} />
+          {nights > 0 && <p className="tform-ok">{nights}박 {nights + 1}일 일정이에요.</p>}
+          {bad && <p className="tform-err">도착일이 출발일보다 빠릅니다.</p>}
+          <div className="xrow"><button className="xbtn line xsm" onClick={() => setF(null)}>취소</button><button className="xbtn xpri xsm" onClick={save} disabled={!f.name.trim() || !f.start || bad}>{f.id ? "수정 저장" : "추가"}</button></div>
         </div>
-      ) : <button className="addl" onClick={() => setAdd(true)}><Icon n="plus" size={16} />여행 추가</button>}
+      ) : <button className="addl" onClick={() => open(blank)}><Icon n="plus" size={16} />여행 추가</button>}
+      {past.length > 0 && !f && <details className="tpast"><summary>지난 여행 {past.length}건</summary>
+        <ul className="tl">{past.map((t) => (
+          <li key={t.id}><b>{t.name}</b><small>{dot(t.start).slice(2)}</small>{editBtn(t)}
+            <button className="x" aria-label={`${t.name} 지우기`} onClick={() => setTrips(trips.filter((x) => x.id !== t.id))}><Icon n="close" size={14} /></button></li>
+        ))}</ul></details>}
       <p className="priv"><Icon n="lock" size={13} />이 기기에만 저장 · 공개되지 않음</p>
     </div>
   );
