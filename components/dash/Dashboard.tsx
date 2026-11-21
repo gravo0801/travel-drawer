@@ -285,6 +285,34 @@ function Stat({ icon, v, u, l }: { icon: string; v: number | string; u: string; 
 }
 
 /* 다음 여행 D-day (이 기기에만 저장) */
+/** 연·월·일을 직접 고르는 날짜 칸 (브라우저 기본 달력 입력이 좁은 카드에서 잘 안 되는 문제 대응) */
+function DateField({ label, value, onChange, min }: { label: string; value: string; onChange: (v: string) => void; min?: string }) {
+  const y0 = kst().getFullYear();
+  const [y, m, d] = value ? value.split("-").map(Number) : [0, 0, 0];
+  const years = Array.from({ length: 8 }, (_, i) => y0 - 1 + i);
+  const dim = (yy: number, mm: number) => new Date(yy || y0, mm || 1, 0).getDate();
+  const set = (ny: number, nm: number, nd: number) => {
+    if (!ny && !nm && !nd) return onChange("");
+    const yy = ny || min?.slice(0, 4) && +min.slice(0, 4) || y0, mm = nm || 1;
+    const dd = Math.min(nd || 1, dim(yy, mm));
+    onChange(`${yy}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`);
+  };
+  return (
+    <div className="dfield" role="group" aria-label={label}>
+      <span className="dl2">{label}</span>
+      <select aria-label={label + " 연도"} value={y || ""} onChange={(e) => set(+e.target.value, m, d)}>
+        <option value="">년</option>{years.map((v) => <option key={v} value={v}>{v}년</option>)}
+      </select>
+      <select aria-label={label + " 월"} value={m || ""} onChange={(e) => set(y, +e.target.value, d)}>
+        <option value="">월</option>{Array.from({ length: 12 }, (_, i) => i + 1).map((v) => <option key={v} value={v}>{v}월</option>)}
+      </select>
+      <select aria-label={label + " 일"} value={d || ""} onChange={(e) => set(y, m, +e.target.value)}>
+        <option value="">일</option>{Array.from({ length: dim(y, m) }, (_, i) => i + 1).map((v) => <option key={v} value={v}>{v}일</option>)}
+      </select>
+    </div>
+  );
+}
+
 function TripsW({ trips, setTrips }: { trips: Trip[]; setTrips: (t: Trip[]) => void }) {
   const today = ymd(kst());
   const [add, setAdd] = useState(false);
@@ -313,9 +341,10 @@ function TripsW({ trips, setTrips }: { trips: Trip[]; setTrips: (t: Trip[]) => v
       {add ? (
         <div className="tform">
           <input placeholder="여행지 (예: 뉴질랜드 남섬)" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} aria-label="여행지" />
-          <label>출발<input type="date" value={f.start} onChange={(e) => setF({ ...f, start: e.target.value })} /></label>
-          <label>도착<input type="date" value={f.end} min={f.start} onChange={(e) => setF({ ...f, end: e.target.value })} /></label>
-          <div className="xrow"><button className="xbtn line xsm" onClick={() => setAdd(false)}>취소</button><button className="xbtn xpri xsm" onClick={save} disabled={!f.name.trim() || !f.start}>추가</button></div>
+          <DateField label="출발" value={f.start} onChange={(v) => setF({ ...f, start: v, end: f.end && v && f.end < v ? "" : f.end })} />
+          <DateField label="도착" value={f.end} min={f.start} onChange={(v) => setF({ ...f, end: v })} />
+          {f.end && f.start && f.end < f.start && <p className="tform-err">도착일이 출발일보다 빠릅니다.</p>}
+          <div className="xrow"><button className="xbtn line xsm" onClick={() => setAdd(false)}>취소</button><button className="xbtn xpri xsm" onClick={save} disabled={!f.name.trim() || !f.start || (!!f.end && f.end < f.start)}>추가</button></div>
         </div>
       ) : <button className="addl" onClick={() => setAdd(true)}><Icon n="plus" size={16} />여행 추가</button>}
       <p className="priv"><Icon n="lock" size={13} />이 기기에만 저장 · 공개되지 않음</p>
