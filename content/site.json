@@ -16,13 +16,14 @@
   }
  },
  "dashboard": {
-  "v": "2026-11-17T02:56:53.453Z",
+  "v": "2026-11-21T02:45:37.000Z",
   "palette": "peach",
   "accent": "",
   "titleFont": "nserif",
   "bodyFont": "pre",
   "size": "m",
   "widgets": [
+   "mt",
    "trips",
    "migrate",
    "timeline",
