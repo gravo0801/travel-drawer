@@ -344,7 +344,7 @@ function MtW({ user }: { user: User | null }) {
         <i style={{ width: use * 100 + "%" }} /><u style={{ left: goal * 100 + "%" }} title="목표선 5,000만원" />
       </div>
       <div className="mt-sc"><span>사용률 <b>{Math.round(use * 100)}%</b></span><span>한도 {won(d.limit / 1e4)}만원</span></div>
-      {diff != null && <p className={"mt-df " + (diff <= 0 ? "dn" : "up")}>30일 전보다 <b>{diff <= 0 ? "▼" : "▲"} {won(Math.abs(diff) / 1e4)}만원</b></p>}
+      {diff != null && <p className={"mt-df " + (diff <= 0 ? "mt-lo" : "mt-hi")}>30일 전보다 <b>{diff <= 0 ? "▼" : "▲"} {won(Math.abs(diff) / 1e4)}만원</b></p>}
       {pts.length > 1 && <svg className="mt-sp" viewBox="0 0 100 32" preserveAspectRatio="none" aria-hidden="true"><polyline points={line} fill="none" strokeWidth="1.6" vectorEffect="non-scaling-stroke" /></svg>}
       <div className="mt-ft"><small>{dot(d.date)} 기준 · 정확히 {won(debt)}원</small><a href={app + "#tx"} target="_blank" rel="noopener">마통 앱 <Icon n="arrow" size={14} /></a></div>
     </div>
