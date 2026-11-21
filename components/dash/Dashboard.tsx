@@ -7,12 +7,13 @@ import { DASH_DEFAULT, DASH_WIDGETS, FONTS, type DashCfg, type WxCity } from "@/
 import { tripKey, tripMonth } from "@/lib/trip";
 import Icon from "./Icon";
 import WeatherW from "./Weather";
+import { VoucherWidget, VoucherManager } from "./VoucherLedger";
 import "./dash.css";
 
 export type DPost = { id: string; title: string; trip: { date: string; country: string; city: string }; cover: string | null; photoCount: number; addedAt: string };
 type Trip = { id: string; name: string; start: string; end: string };
 type Private = { trips: Trip[]; memo: string };
-type Page = "home" | "calendar";
+type Page = "home" | "calendar" | "vouchers";
 
 /* ── 분위기(팔레트) ── 밝은 배경 2색 · 포인트 · 사이드바 · 어두운 화면용 포인트 */
 const PAL: Record<string, { n: string; a: string; b: string; acc: string; side: string; accD: string }> = {
@@ -31,8 +32,8 @@ const APPS = [
   { n: "EndoApp", sub: "내시경 업무", icon: "scope", hue: "violet", url: "https://gravo0801.github.io/endoapp/" },
   { n: "Google 캘린더", sub: "일정", icon: "calendar", hue: "amber", url: "https://calendar.google.com/" },
 ];
-const WNAME: Record<string, string> = { wx: "날씨", mt: "마통 잔액", gc: "오늘 일정", trips: "다음 여행", migrate: "블로그 이전", timeline: "여행 연표", apps: "나의 앱", memo: "메모" };
-const WICON: Record<string, string> = { wx: "sun", mt: "chart", gc: "calendar", trips: "plane", migrate: "move", timeline: "globe", apps: "widgets", memo: "note" };
+const WNAME: Record<string, string> = { wx: "날씨", mt: "마통 잔액", gc: "오늘 일정", trips: "다음 여행", migrate: "블로그 이전", timeline: "여행 연표", apps: "나의 앱", memo: "메모", vouchers: "카드 혜택" };
+const WICON: Record<string, string> = { wx: "sun", mt: "chart", gc: "calendar", trips: "plane", migrate: "move", timeline: "globe", apps: "widgets", memo: "note", vouchers: "note" };
 
 const fam = (id: string) => (FONTS.find((f) => f.id === id) ?? FONTS[0]).family;
 const kst = () => new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
@@ -75,7 +76,7 @@ export default function Dashboard({ posts, dash, siteHero, admins, total }: { po
     if (loc && loc.base === dash.v) setCfgS({ ...DASH_DEFAULT, ...loc.cfg });
     setDark(read("drawer.dark", false));
     setPrivS({ trips: [], memo: "", ...read<Partial<Private>>("drawer.private.v1", {}) });
-    const h = () => setPage(location.hash === "#calendar" ? "calendar" : "home");
+    const h = () => setPage(location.hash === "#calendar" ? "calendar" : location.hash === "#vouchers" ? "vouchers" : "home");
     h(); window.addEventListener("hashchange", h);
     return () => window.removeEventListener("hashchange", h);
   }, [dash.v]);
@@ -113,6 +114,7 @@ export default function Dashboard({ posts, dash, siteHero, admins, total }: { po
         <nav>
           <button className={page === "home" ? "xon" : ""} onClick={() => go("home")}><Icon n="overview" />오버뷰</button>
           <button className={page === "calendar" ? "xon" : ""} onClick={() => go("calendar")}><Icon n="calendar" />캘린더</button>
+          <button className={page === "vouchers" ? "xon" : ""} onClick={() => go("vouchers")}><Icon n="note" />카드 혜택</button>
         </nav>
         <p className="lbl">여행 블로그</p>
         <nav>
@@ -138,20 +140,21 @@ export default function Dashboard({ posts, dash, siteHero, admins, total }: { po
       <div className="main">
         <header className="top">
           <a className="xbrand xsm" href="/me"><span className="mark"><Icon n="logo" size={19} /></span>DRAWER<i>.</i></a>
-          <p className="crumb">나의 공간 <span>/</span> <b>{page === "home" ? "오버뷰" : "캘린더"}</b></p>
+          <p className="crumb">나의 공간 <span>/</span> <b>{page === "home" ? "오버뷰" : page === "calendar" ? "캘린더" : "카드 혜택"}</b></p>
           <div className="top-r">
             <span className="today">{new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "long", day: "numeric", weekday: "short" }).format(new Date())}</span>
             <button className="ibtn" onClick={toggleDark} aria-label={dark ? "밝은 화면" : "어두운 화면"} title={dark ? "밝은 화면" : "어두운 화면"}><Icon n={dark ? "sun" : "moon"} /></button>
           </div>
         </header>
         {page === "home"
-          ? <Overview user={user} saveCities={saveCities} posts={posts} cfg={cfg} siteHero={siteHero} total={total} name={name} priv={priv} setPriv={setPriv} setCfg={setCfg} onWidgets={() => setDlg("widgets")} />
-          : <CalendarPage user={user} trips={priv.trips} />}
+          ? <Overview user={user} saveCities={saveCities} posts={posts} cfg={cfg} siteHero={siteHero} total={total} name={name} priv={priv} setPriv={setPriv} setCfg={setCfg} onWidgets={() => setDlg("widgets")} onVouchers={() => go("vouchers")} />
+          : page === "calendar" ? <CalendarPage user={user} trips={priv.trips} /> : <VoucherManager user={user} />}
       </div>
 
       <nav className="tabbar">
         <button className={page === "home" ? "xon" : ""} onClick={() => go("home")}><Icon n="overview" /><span>오버뷰</span></button>
         <button className={page === "calendar" ? "xon" : ""} onClick={() => go("calendar")}><Icon n="calendar" /><span>캘린더</span></button>
+        <button className={page === "vouchers" ? "xon" : ""} onClick={() => go("vouchers")}><Icon n="note" /><span>카드 혜택</span></button>
         <a href="/"><Icon n="book" /><span>블로그</span></a>
         <a href="/write"><Icon n="pen" /><span>글쓰기</span></a>
         <button onClick={() => setDlg("design")}><Icon n="sliders" /><span>설정</span></button>
@@ -189,8 +192,8 @@ function Gate({ state, user, err, hero, style, onLogin, onOut }: { state: string
 }
 
 /* ───────────── 오버뷰 ───────────── */
-function Overview({ user, saveCities, posts, cfg, siteHero, total, name, priv, setPriv, setCfg, onWidgets }: {
-  user: User | null; saveCities: (c: WxCity[]) => Promise<string>; posts: DPost[]; cfg: DashCfg; siteHero: string; total: number; name: string; priv: Private; setPriv: (p: Partial<Private>) => void; setCfg: (c: Partial<DashCfg>) => void; onWidgets: () => void;
+function Overview({ user, saveCities, posts, cfg, siteHero, total, name, priv, setPriv, setCfg, onWidgets, onVouchers }: {
+  user: User | null; saveCities: (c: WxCity[]) => Promise<string>; posts: DPost[]; cfg: DashCfg; siteHero: string; total: number; name: string; priv: Private; setPriv: (p: Partial<Private>) => void; setCfg: (c: Partial<DashCfg>) => void; onWidgets: () => void; onVouchers: () => void;
 }) {
   const now = kst(), h = now.getHours();
   const hello = h < 5 ? "고요한 밤이에요" : h < 11 ? "좋은 아침이에요" : h < 17 ? "좋은 오후예요" : h < 22 ? "편안한 저녁이에요" : "고요한 밤이에요";
@@ -210,6 +213,7 @@ function Overview({ user, saveCities, posts, cfg, siteHero, total, name, priv, s
     timeline: <TimelineW posts={posts} />,
     apps: <AppsW />,
     memo: <MemoW memo={priv.memo} setMemo={(memo) => setPriv({ memo })} />,
+    vouchers: <VoucherWidget user={user} onOpen={onVouchers} />,
   };
   const on = cfg.widgets.filter((w) => W[w]);
 
