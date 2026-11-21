@@ -19,21 +19,24 @@ const revisionKey = (uid: string) => `drawer.private.revision.v1.${uid}`;
 function parse(value: unknown): PrivateData | null {
   if (!value || typeof value !== "object") return null;
   const raw = value as Record<string, unknown>;
-  if (!Array.isArray(raw.trips) || typeof raw.memo !== "string") return null;
-  if (raw.trips.length > 300 || raw.memo.length > 100_000) return null;
+  const memo = raw.memo === undefined ? "" : raw.memo;
+  if (!Array.isArray(raw.trips) || typeof memo !== "string") return null;
+  if (raw.trips.length > 300 || memo.length > 100_000) return null;
   const trips: Trip[] = [];
   const ids = new Set<string>();
   for (const entry of raw.trips) {
     if (!entry || typeof entry !== "object") return null;
     const t = entry as Record<string, unknown>;
+    const start = typeof t.start === "string" ? t.start : t.date;
+    const end = t.end === undefined ? "" : t.end;
     if (typeof t.id !== "string" || !t.id || t.id.length > 100 || ids.has(t.id) ||
         typeof t.name !== "string" || t.name.length > 200 ||
-        typeof t.start !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(t.start) ||
-        typeof t.end !== "string" || (t.end && !/^\d{4}-\d{2}-\d{2}$/.test(t.end))) return null;
+        typeof start !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(start) ||
+        typeof end !== "string" || (end && !/^\d{4}-\d{2}-\d{2}$/.test(end))) return null;
     ids.add(t.id);
-    trips.push({ id: t.id, name: t.name, start: t.start, end: t.end });
+    trips.push({ id: t.id, name: t.name, start, end });
   }
-  return { trips, memo: raw.memo };
+  return { trips, memo };
 }
 
 const hasData = (value: PrivateData) => value.trips.length > 0 || value.memo.length > 0;
@@ -166,7 +169,12 @@ export function usePrivateSync(user: User | null) {
     const previous = Object.keys(localStorage).filter((key) => key.startsWith(prefix)).map((key) => {
       try { return { key, data: JSON.parse(localStorage.getItem(key) || "null") }; } catch { return { key, data: null }; }
     });
-    const blob = new Blob([JSON.stringify({ schema: 1, exportedAt: new Date().toISOString(), data: current.current, previous }, null, 2)], { type: "application/json" });
+    const localRaw = localStorage.getItem(localKey(uid));
+    const legacyRaw = localStorage.getItem(legacyKey);
+    const blob = new Blob([JSON.stringify({ schema: 1, exportedAt: new Date().toISOString(), data: current.current, previous,
+      unreadableLocalRaw: localRaw && !parseSafe(localRaw) ? localRaw : undefined,
+      unreadableLegacyRaw: legacyRaw && !parseSafe(legacyRaw) ? legacyRaw : undefined,
+    }, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a"); link.href = url; link.download = `drawer-private-${new Date().toISOString().slice(0, 10)}.json`; link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
