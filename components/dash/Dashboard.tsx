@@ -30,8 +30,8 @@ const APPS = [
   { n: "EndoApp", sub: "내시경 업무", icon: "scope", hue: "violet", url: "https://gravo0801.github.io/endoapp/" },
   { n: "Google 캘린더", sub: "일정", icon: "calendar", hue: "amber", url: "https://calendar.google.com/" },
 ];
-const WNAME: Record<string, string> = { trips: "다음 여행", migrate: "블로그 이전", timeline: "여행 연표", apps: "나의 앱", memo: "메모" };
-const WICON: Record<string, string> = { trips: "plane", migrate: "move", timeline: "globe", apps: "widgets", memo: "note" };
+const WNAME: Record<string, string> = { mt: "마통 잔액", trips: "다음 여행", migrate: "블로그 이전", timeline: "여행 연표", apps: "나의 앱", memo: "메모" };
+const WICON: Record<string, string> = { mt: "chart", trips: "plane", migrate: "move", timeline: "globe", apps: "widgets", memo: "note" };
 
 const fam = (id: string) => (FONTS.find((f) => f.id === id) ?? FONTS[0]).family;
 const kst = () => new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
@@ -134,7 +134,7 @@ export default function Dashboard({ posts, dash, siteHero, admins, total }: { po
           </div>
         </header>
         {page === "home"
-          ? <Overview posts={posts} cfg={cfg} siteHero={siteHero} total={total} name={name} priv={priv} setPriv={setPriv} setCfg={setCfg} onWidgets={() => setDlg("widgets")} />
+          ? <Overview user={user} posts={posts} cfg={cfg} siteHero={siteHero} total={total} name={name} priv={priv} setPriv={setPriv} setCfg={setCfg} onWidgets={() => setDlg("widgets")} />
           : <CalendarPage trips={priv.trips} />}
       </div>
 
@@ -178,8 +178,8 @@ function Gate({ state, user, err, hero, style, onLogin, onOut }: { state: string
 }
 
 /* ───────────── 오버뷰 ───────────── */
-function Overview({ posts, cfg, siteHero, total, name, priv, setPriv, setCfg, onWidgets }: {
-  posts: DPost[]; cfg: DashCfg; siteHero: string; total: number; name: string; priv: Private; setPriv: (p: Partial<Private>) => void; setCfg: (c: Partial<DashCfg>) => void; onWidgets: () => void;
+function Overview({ user, posts, cfg, siteHero, total, name, priv, setPriv, setCfg, onWidgets }: {
+  user: User | null; posts: DPost[]; cfg: DashCfg; siteHero: string; total: number; name: string; priv: Private; setPriv: (p: Partial<Private>) => void; setCfg: (c: Partial<DashCfg>) => void; onWidgets: () => void;
 }) {
   const now = kst(), h = now.getHours();
   const hello = h < 5 ? "고요한 밤이에요" : h < 11 ? "좋은 아침이에요" : h < 17 ? "좋은 오후예요" : h < 22 ? "편안한 저녁이에요" : "고요한 밤이에요";
@@ -191,6 +191,7 @@ function Overview({ posts, cfg, siteHero, total, name, priv, setPriv, setCfg, on
   const next = priv.trips.filter((t) => (t.end || t.start) >= ymd(now)).sort((a, b) => a.start.localeCompare(b.start))[0];
 
   const W: Record<string, React.ReactNode> = {
+    mt: <MtW user={user} />,
     trips: <TripsW trips={priv.trips} setTrips={(trips) => setPriv({ trips })} />,
     migrate: <MigrateW done={posts.length} total={total} />,
     timeline: <TimelineW posts={posts} />,
@@ -310,6 +311,45 @@ function TripsW({ trips, setTrips }: { trips: Trip[]; setTrips: (t: Trip[]) => v
 }
 
 /* 네이버 → 새 블로그 이전 진행률 */
+type MtData = { balance: number; date: string; limit: number; goal: number; points: { d: string; v: number }[]; prev?: { d: string; v: number } };
+const won = (n: number) => Math.round(n).toLocaleString("ko-KR");
+function MtW({ user }: { user: User | null }) {
+  const [d, setD] = useState<MtData | null>(null);
+  const [err, setErr] = useState("");
+  useEffect(() => {
+    if (!user) return; let off = false;
+    (async () => {
+      try {
+        const r = await fetch("/api/admin/finance", { headers: { authorization: `Bearer ${await user.getIdToken()}` }, cache: "no-store" });
+        const j = await r.json();
+        if (off) return; if (!r.ok) setErr(j.error || "불러오지 못했습니다."); else setD(j);
+      } catch { if (!off) setErr("네트워크 오류로 불러오지 못했습니다."); }
+    })();
+    return () => { off = true; };
+  }, [user]);
+  const app = "https://gravo-finance.vercel.app/";
+  if (err) return <div className="mt"><p className="mt-note">{err}</p><a className="xbtn line xsm" href={app} target="_blank" rel="noopener"><Icon n="open" size={15} />마통 앱 열기</a></div>;
+  if (!d) return <div className="mt"><p className="mt-note">불러오는 중…</p></div>;
+  const debt = Math.max(0, -d.balance), over = d.balance > 0;
+  const use = Math.min(1, debt / d.limit), goal = Math.min(1, d.goal / d.limit);
+  const diff = d.prev ? debt - Math.max(0, -d.prev.v) : null;
+  const pts = d.points.map((p) => Math.max(0, -p.v));
+  const lo = Math.min(...pts), hi = Math.max(...pts), span = hi - lo || 1;
+  const line = pts.map((v, i) => `${pts.length > 1 ? (i / (pts.length - 1)) * 100 : 100},${28 - ((v - lo) / span) * 24}`).join(" ");
+  return (
+    <div className="mt">
+      <div className="mt-n"><b>{over ? "+" : ""}{won(over ? d.balance / 1e4 : debt / 1e4)}<em>만원</em></b><small>{over ? "예금 잔액" : "마이너스 사용 중"}</small></div>
+      <div className="mt-bar" role="img" aria-label={`한도 대비 ${Math.round(use * 100)}% 사용`}>
+        <i style={{ width: use * 100 + "%" }} /><u style={{ left: goal * 100 + "%" }} title="목표선 5,000만원" />
+      </div>
+      <div className="mt-sc"><span>사용률 <b>{Math.round(use * 100)}%</b></span><span>한도 {won(d.limit / 1e4)}만원</span></div>
+      {diff != null && <p className={"mt-df " + (diff <= 0 ? "dn" : "up")}>30일 전보다 <b>{diff <= 0 ? "▼" : "▲"} {won(Math.abs(diff) / 1e4)}만원</b></p>}
+      {pts.length > 1 && <svg className="mt-sp" viewBox="0 0 100 32" preserveAspectRatio="none" aria-hidden="true"><polyline points={line} fill="none" strokeWidth="1.6" vectorEffect="non-scaling-stroke" /></svg>}
+      <div className="mt-ft"><small>{dot(d.date)} 기준 · 정확히 {won(debt)}원</small><a href={app + "#tx"} target="_blank" rel="noopener">마통 앱 <Icon n="arrow" size={14} /></a></div>
+    </div>
+  );
+}
+
 function MigrateW({ done, total }: { done: number; total: number }) {
   const r = 34, c = 2 * Math.PI * r, pct = Math.min(1, done / total);
   return (
