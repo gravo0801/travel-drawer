@@ -213,9 +213,16 @@ export function usePrivateSync(user: User | null) {
   const choose = useCallback(async (source: "local" | "cloud") => {
     if (!uid || !choice || !firebaseApp()) return;
     setBusy(true);
+    const atVersion = version.current;
     try {
+      if (localStorage.getItem(localKey(uid)) !== currentSerialized.current)
+        throw new Error("다른 탭에서 이 기기의 기록이 바뀌었습니다. 새로고침 후 다시 확인해 주세요.");
       if (source === "local") {
         const payload = current.current;
+        const serialized = JSON.stringify(payload);
+        localStorage.setItem(localKey(uid), serialized);
+        localStorage.setItem(dirtyKey(uid), "1");
+        currentSerialized.current = serialized;
         if (choice.exists) preserve(uid, "cloud-before", choice.remote);
         const next = await runTransaction(getFirestore(firebaseApp()!), async (tx) => {
           const ref = cloudRef(uid); const snap = await tx.get(ref);
@@ -225,10 +232,14 @@ export function usePrivateSync(user: User | null) {
           return actual + 1;
         });
         revision.current = next;
+        if (version.current !== atVersion)
+          throw new Error("연결 중 이 기기의 기록이 바뀌었습니다. 새 기록을 보존했으니 클라우드 기록을 다시 확인해 주세요.");
       } else {
         const snap = await getDocFromServer(cloudRef(uid));
         const actual = snap.exists() ? Number(snap.data().revision) || 0 : 0;
         if (actual !== choice.revision) throw new Error("클라우드가 방금 변경되었습니다. 다시 확인해 주세요.");
+        if (version.current !== atVersion || localStorage.getItem(localKey(uid)) !== currentSerialized.current)
+          throw new Error("연결 중 이 기기의 기록이 바뀌었습니다. 새로고침 후 다시 확인해 주세요.");
         preserve(uid, "local-before", current.current);
         const remote = snap.exists() ? parse(snap.data().data) : EMPTY;
         if (!remote) throw new Error("클라우드 기록 형식이 올바르지 않습니다.");

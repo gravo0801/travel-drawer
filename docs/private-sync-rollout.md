@@ -9,7 +9,18 @@
 
 ## 2. Firestore 규칙 점검
 
-Firebase Console에서 **현재 운영 규칙 전체를 먼저 백업**한다. 기존 컬렉션 규칙을 유지한 채 아래 블록을 `match /databases/{database}/documents` 안에 병합한다. 광역 허용 규칙이 이 경로에도 적용되는지 점검한다.
+Firebase Console에서 **현재 운영 규칙 전체를 먼저 백업**한다. 기존 컬렉션 규칙을 유지한 채 아래 블록을 `match /databases/{database}/documents` 안에 병합한다. 겹치는 규칙은 어느 하나라도 허용하면 접근이 허용되므로, 광역 허용 규칙이 있다면 새 컬렉션을 반드시 그 규칙에서 제외한다.
+
+2026-11-22 운영 프로젝트에서는 기존 `match /{document=**}`가 모든 문서 읽기를 허용하고 관리자에게 쓰기를 허용했다. 이를 아래와 같이 바꿔 `drawer_private_data`를 제외한 뒤, UID 전용 블록을 추가했다. 기존 다른 경로의 허용 조건은 유지된다.
+
+```text
+match /{document=**} {
+  allow read: if document[0] != 'drawer_private_data';
+  allow write: if document[0] != 'drawer_private_data'
+    && request.auth != null
+    && request.auth.uid == '<기존 운영 규칙의 관리자 UID>';
+}
+```
 
 ```text
 match /drawer_private_data/{userId} {
@@ -39,7 +50,7 @@ match /drawer_private_data/{userId} {
 }
 ```
 
-운영 규칙을 게시하기 전에 Firebase Rules Playground/Emulator에서 본인 UID 읽기·쓰기 허용, 다른 UID 읽기·쓰기 거부, 목록 조회 거부, 삭제 거부를 확인한다. 이 저장소에는 운영 규칙 전체가 없으므로 위 예시만 단독으로 게시하지 않는다.
+운영 규칙은 Firebase Rules Playground에서 비로그인·타인 읽기 거부, 본인 읽기·생성 허용, 타인 생성·본인 삭제 거부, 기존 경로 읽기 허용을 확인한 뒤 게시했다. 목록 조회는 UI 플레이그라운드에 항목이 없어 추가 확인이 필요하다. 이 저장소에는 운영 규칙 전체가 없으므로 위 예시만 단독으로 게시하지 않는다.
 
 ## 3. 소규모 연결 및 기기 간 확인
 
