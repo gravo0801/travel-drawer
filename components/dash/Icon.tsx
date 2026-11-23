@@ -184,6 +184,9 @@ const P: Record<string, React.ReactNode> = {
   search: (<>
     <circle className="d" cx="10.8" cy="10.8" r="6.2" /><circle cx="10.8" cy="10.8" r="6.2" /><path d="M15.4 15.4l4.6 4.6" />
   </>),
+  grip: (<><circle className="f" cx="9" cy="6.5" r="1.4" /><circle className="f" cx="15" cy="6.5" r="1.4" /><circle className="f" cx="9" cy="12" r="1.4" /><circle className="f" cx="15" cy="12" r="1.4" /><circle className="f" cx="9" cy="17.5" r="1.4" /><circle className="f" cx="15" cy="17.5" r="1.4" /></>),
+  eyeoff: (<><path d="M3.5 12s3.2-6 8.5-6 8.5 6 8.5 6-3.2 6-8.5 6-8.5-6-8.5-6z" /><circle cx="12" cy="12" r="2.6" /><path d="M4.5 4.5l15 15" /></>),
+  map: (<><path className="d" d="M3.5 6.5l5.5-2 6 2 5.5-2v13l-5.5 2-6-2-5.5 2z" /><path d="M3.5 6.5l5.5-2 6 2 5.5-2v13l-5.5 2-6-2-5.5 2z" /><path d="M9 4.5v13M15 6.5v13" /></>),
   spark: <path className="f" d="M12 3.5l1.7 5.2a2.6 2.6 0 0 0 1.6 1.6l5.2 1.7-5.2 1.7a2.6 2.6 0 0 0-1.6 1.6L12 20.5l-1.7-5.2a2.6 2.6 0 0 0-1.6-1.6L3.5 12l5.2-1.7a2.6 2.6 0 0 0 1.6-1.6z" />,
 };
 
