@@ -135,7 +135,7 @@
 .xcard{border-radius:var(--r);background:var(--card);border:1px solid var(--line);box-shadow:var(--sh);padding:20px 22px 22px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);animation:up .5s ease both}
 @keyframes up{from{opacity:0;transform:translateY(8px)}to{opacity:1}}
 .grid .xcard:nth-child(2){animation-delay:.04s}.grid .xcard:nth-child(3){animation-delay:.08s}.grid .xcard:nth-child(4){animation-delay:.12s}.grid .xcard:nth-child(5){animation-delay:.16s}
-.w-wx{grid-column:span 8}.w-mt{grid-column:span 4}.w-gc{grid-column:span 4}.w-trips{grid-column:span 5}.w-migrate{grid-column:span 4}.w-timeline{grid-column:span 7}.w-apps{grid-column:span 7}.w-memo{grid-column:span 5}
+.w-wx{grid-column:span 8}.w-mt{grid-column:span 4}.w-gc{grid-column:span 4}.w-trips{grid-column:span 5}.w-migrate{grid-column:span 4}.w-timeline{grid-column:span 7}.w-apps{grid-column:span 7}.w-memo{grid-column:span 5}.w-visited{grid-column:span 7}
 .ch{display:flex;align-items:center;gap:10px;margin-bottom:16px}
 .ci{width:32px;height:32px;border-radius:10px}
 .ch h3{font-size:15.5px}
@@ -340,7 +340,7 @@
 @media (max-width:760px){
   .w-wx,.w-mt,.w-gc,.w-trips,.w-migrate,.w-timeline,.w-apps,.w-memo{grid-column:span 12}
   .hello{align-items:flex-start;flex-direction:column}
-  .hello .xbtn{display:none}
+  .hello .xbtn{align-self:flex-start}
   .xhero{height:440px;border-radius:22px}
   .xhero::before{background:linear-gradient(0deg,rgba(8,14,16,.82),rgba(8,14,16,.25) 60%,rgba(8,14,16,.15))}
   .hero-in{left:22px;right:22px;bottom:24px}
@@ -485,3 +485,70 @@ body:has(.dash) .drawer,body:has(.dash) .scrim{display:none!important}
 .tl li .x,.dday .x{opacity:1}
 @media (hover:hover){.tl li .x{opacity:0}.tl li:hover .x,.tl li:focus-within .x{opacity:1}}
 .dday .x+.x{margin-left:0}
+
+/* ───────────── 위젯 크기(편집에서 고른 값) ───────────── */
+.grid .xcard[data-s="s"]{grid-column:span 4}
+.grid .xcard[data-s="m"]{grid-column:span 6}
+.grid .xcard[data-s="l"]{grid-column:span 12}
+@media (max-width:1180px){
+  .w-visited{grid-column:span 12}
+  .grid .xcard[data-s="s"],.grid .xcard[data-s="m"]{grid-column:span 6}
+}
+/* 폴드를 펼친 화면(약 520~760px): 두 줄로 */
+@media (min-width:521px) and (max-width:760px){
+  .grid .xcard{grid-column:span 6}
+  .grid .xcard.w-wx,.grid .xcard.w-timeline,.grid .xcard.w-apps,.grid .xcard.w-visited,.grid .xcard[data-s="l"]{grid-column:span 12}
+}
+/* 접은 화면·휴대폰: 한 줄로 */
+@media (max-width:520px){
+  .grid .xcard,.grid .xcard[data-s]{grid-column:span 12}
+}
+
+/* ───────────── 위젯 편집 모드 ───────────── */
+.ebar{margin:0 0 16px;padding:14px 16px;border-radius:var(--r);border:1.5px dashed color-mix(in srgb,var(--acc) 55%,var(--line));background:color-mix(in srgb,var(--acc) 7%,var(--card));display:grid;gap:10px}
+.ebar>p{margin:0;font-size:13.5px;line-height:1.65}
+.ebar svg.ic{vertical-align:-2px}
+.eadd{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.eadd span{font-size:12.5px;color:var(--mute)}
+.eadd button{display:inline-flex;align-items:center;gap:5px;min-height:36px;padding:0 13px;border-radius:99px;border:1px solid var(--line);background:var(--card);font-size:13px}
+.erow{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.erow .hint{margin:0;flex:1 1 220px}
+.grid.editing .xcard{outline:1.5px dashed color-mix(in srgb,var(--acc) 45%,transparent);outline-offset:-1px;-webkit-user-select:none;user-select:none}
+.grid.editing .xcard>:not(.ch):not(.ectl){pointer-events:none;opacity:.45;filter:saturate(.6)}
+.xcard.dragging{position:relative;z-index:5;transform:scale(1.015);box-shadow:0 24px 54px -18px rgba(0,0,0,.45)}
+.ectl{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:-4px 0 14px;padding:8px;border-radius:14px;background:var(--card2);border:1px solid var(--line)}
+.egrip{display:inline-flex;align-items:center;gap:6px;min-height:42px;padding:0 13px;border-radius:10px;font-size:13px;font-weight:500;cursor:grab;touch-action:none;background:var(--card);border:1px solid var(--line)}
+.dragging .egrip{cursor:grabbing}
+.eseg{display:inline-flex;margin-left:auto;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--card)}
+.eseg button{min-height:40px;min-width:46px;padding:0 11px;font-size:12.5px}
+.eseg button+button{border-left:1px solid var(--line)}
+.eseg button[aria-pressed="true"]{background:var(--acc);color:#fff}
+.dark .eseg button[aria-pressed="true"]{color:var(--side)}
+.ehide{display:grid;place-items:center;width:42px;height:42px;border-radius:10px;border:1px solid var(--line);background:var(--card)}
+
+/* ───────────── 다녀온 곳 지도 ───────────── */
+.vm{display:grid;gap:12px}
+.vm-top{display:flex;align-items:baseline;gap:6px 16px;flex-wrap:wrap}
+.vm-n b{font-size:34px;font-weight:600;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.vm-n span{margin-left:6px;font-size:14px;color:var(--mute)}
+.vm-tip{margin:0;font-size:13px;color:var(--mute)}
+.vm-map{border-radius:16px;background:color-mix(in srgb,var(--acc) 6%,var(--card2));padding:6px;overflow:hidden}
+.vm-map svg{display:block;width:100%;height:auto}
+.vm-map path{fill:color-mix(in srgb,var(--ink) 14%,transparent);stroke:var(--card);stroke-width:.6;cursor:pointer;transition:fill .15s}
+.vm-map path:hover{fill:color-mix(in srgb,var(--acc) 40%,transparent)}
+.vm-map path.auto{fill:color-mix(in srgb,var(--acc) 52%,transparent)}
+.vm-map path.on{fill:var(--acc)}
+.vm-load{aspect-ratio:960/500;display:grid;place-items:center;font-size:13px;color:var(--mute)}
+.vm-search{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 14px;border-radius:12px;border:1px solid var(--line);background:var(--card2);color:var(--mute)}
+.vm-search input{flex:1;min-width:0;background:none;border:0;outline:0;font:inherit;font-size:14px;color:var(--ink)}
+.vm-found{list-style:none;margin:-4px 0 0;padding:6px;display:grid;gap:2px;border-radius:12px;border:1px solid var(--line);background:var(--card)}
+.vm-found button{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;min-height:42px;padding:0 10px;border-radius:8px;font-size:14px;text-align:left}
+.vm-found button:hover{background:var(--card2)}
+.vm-found small{font-size:12px;color:var(--mute)}
+.vm-chips{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.vm-chips li{display:inline-flex;align-items:center;gap:4px;padding:5px 6px 5px 12px;border-radius:99px;font-size:13px;background:color-mix(in srgb,var(--acc) 16%,transparent);border:1px solid color-mix(in srgb,var(--acc) 35%,transparent)}
+.vm-chips li.auto{padding-right:12px;background:transparent;border-style:dashed}
+.vm-chips li button{display:grid;place-items:center;width:20px;height:20px;border-radius:50%;color:var(--mute)}
+.vm-chips li button:hover{background:color-mix(in srgb,var(--ink) 10%,transparent)}
+.vm-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.vm-foot .hint{margin:0;flex:1 1 200px}

@@ -5,8 +5,10 @@ import { firebaseApp } from "@/lib/firebase";
 import { login } from "@/lib/login";
 import { DASH_DEFAULT, DASH_WIDGETS, FONTS, type DashCfg, type WxCity } from "@/lib/site";
 import { tripKey, tripMonth } from "@/lib/trip";
+import { codesFromNames } from "@/lib/visitedCodes";
 import Icon from "./Icon";
 import WeatherW from "./Weather";
+import VisitedW from "./VisitedMap";
 import { useRefreshPulse } from "./useRefreshPulse";
 import { VoucherWidget, VoucherManager } from "./VoucherLedger";
 import "./dash.css";
@@ -33,8 +35,8 @@ const APPS = [
   { n: "EndoApp", sub: "내시경 업무", icon: "scope", hue: "violet", url: "https://gravo0801.github.io/endoapp/" },
   { n: "Google 캘린더", sub: "일정", icon: "calendar", hue: "amber", url: "https://calendar.google.com/" },
 ];
-const WNAME: Record<string, string> = { wx: "날씨", mt: "마통 잔액", gc: "오늘 일정", trips: "다음 여행", migrate: "블로그 이전", timeline: "여행 연표", apps: "나의 앱", memo: "메모", vouchers: "카드 혜택" };
-const WICON: Record<string, string> = { wx: "sun", mt: "chart", gc: "calendar", trips: "plane", migrate: "move", timeline: "globe", apps: "widgets", memo: "note", vouchers: "note" };
+const WNAME: Record<string, string> = { wx: "날씨", mt: "마통 잔액", gc: "오늘 일정", trips: "다음 여행", migrate: "블로그 이전", timeline: "여행 연표", apps: "나의 앱", memo: "메모", vouchers: "카드 혜택", visited: "다녀온 곳" };
+const WICON: Record<string, string> = { wx: "sun", mt: "chart", gc: "calendar", trips: "plane", migrate: "move", timeline: "globe", apps: "widgets", memo: "note", vouchers: "note", visited: "map" };
 
 const fam = (id: string) => (FONTS.find((f) => f.id === id) ?? FONTS[0]).family;
 const kst = () => new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
@@ -83,16 +85,18 @@ export default function Dashboard({ posts, dash, siteHero, admins, total }: { po
   }, [dash.v]);
   const setCfg = (c: Partial<DashCfg>) => setCfgS((o) => { const n = { ...o, ...c }; write("drawer.cfg.v2", { base: dash.v, cfg: n }); return n; });
   const setPriv = (p: Partial<Private>) => setPrivS((o) => { const n = { ...o, ...p }; write("drawer.private.v1", n); return n; });
-  /** 날씨 프리셋 도시: 저장된 공통 설정(dash)에 도시 목록만 바꿔 모든 기기에 저장 */
-  const saveCities = async (cities: WxCity[]) => {
-    setCfg({ cities });
+  /** 공통 설정을 모든 기기에 저장 — 이 기기의 바뀐 값 전체(+지금 바꾼 항목)를 함께 올려, 방금 저장한 다른 항목이 되돌려지지 않게 함 */
+  const savePart = async (patch: Partial<DashCfg>) => {
+    setCfg(patch);
     if (!user) return "로그인이 필요합니다.";
     try {
-      const r = await fetch("/api/admin/dashboard", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${await user.getIdToken()}` }, body: JSON.stringify({ ...DASH_DEFAULT, ...dash, cities }) });
+      const r = await fetch("/api/admin/dashboard", { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${await user.getIdToken()}` }, body: JSON.stringify({ ...DASH_DEFAULT, ...cfg, ...patch }) });
       const j = (await r.json().catch(() => ({}))) as { error?: string };
       return r.ok ? "저장했습니다. 1~2분 뒤 모든 기기에 반영됩니다." : "저장 실패: " + (j.error ?? r.status);
     } catch { return "저장 실패: 네트워크 오류"; }
   };
+  const saveCities = (cities: WxCity[]) => savePart({ cities });
+  const saveVisited = (visited: string[]) => savePart({ visited });
   const toggleDark = () => setDark((d) => { write("drawer.dark", !d); return !d; });
   const go = (p: Page) => { location.hash = p === "home" ? "" : p; setPage(p); window.scrollTo(0, 0); };
 
@@ -148,7 +152,7 @@ export default function Dashboard({ posts, dash, siteHero, admins, total }: { po
           </div>
         </header>
         {page === "home"
-          ? <Overview user={user} saveCities={saveCities} posts={posts} cfg={cfg} siteHero={siteHero} total={total} name={name} priv={priv} setPriv={setPriv} setCfg={setCfg} onWidgets={() => setDlg("widgets")} onVouchers={() => go("vouchers")} />
+          ? <Overview user={user} saveCities={saveCities} saveVisited={saveVisited} savePart={savePart} savedVisited={dash.visited ?? []} posts={posts} cfg={cfg} siteHero={siteHero} total={total} name={name} priv={priv} setPriv={setPriv} setCfg={setCfg} onWidgets={() => setDlg("widgets")} onVouchers={() => go("vouchers")} />
           : page === "calendar" ? <CalendarPage user={user} trips={priv.trips} /> : <VoucherManager user={user} />}
       </div>
 
@@ -193,12 +197,14 @@ function Gate({ state, user, err, hero, style, onLogin, onOut }: { state: string
 }
 
 /* ───────────── 오버뷰 ───────────── */
-function Overview({ user, saveCities, posts, cfg, siteHero, total, name, priv, setPriv, setCfg, onWidgets, onVouchers }: {
-  user: User | null; saveCities: (c: WxCity[]) => Promise<string>; posts: DPost[]; cfg: DashCfg; siteHero: string; total: number; name: string; priv: Private; setPriv: (p: Partial<Private>) => void; setCfg: (c: Partial<DashCfg>) => void; onWidgets: () => void; onVouchers: () => void;
+function Overview({ user, saveCities, saveVisited, savePart, savedVisited, posts, cfg, siteHero, total, name, priv, setPriv, setCfg, onWidgets, onVouchers }: {
+  user: User | null; saveCities: (c: WxCity[]) => Promise<string>; saveVisited: (v: string[]) => Promise<string>; savePart: (p: Partial<DashCfg>) => Promise<string>; savedVisited: string[]; posts: DPost[]; cfg: DashCfg; siteHero: string; total: number; name: string; priv: Private; setPriv: (p: Partial<Private>) => void; setCfg: (c: Partial<DashCfg>) => void; onWidgets: () => void; onVouchers: () => void;
 }) {
   const now = kst(), h = now.getHours();
   const hello = h < 5 ? "고요한 밤이에요" : h < 11 ? "좋은 아침이에요" : h < 17 ? "좋은 오후예요" : h < 22 ? "편안한 저녁이에요" : "고요한 밤이에요";
   const countries = new Set(posts.map((p) => p.trip.country).filter((c) => c && !c.includes("미정")));
+  const derived = useMemo(() => codesFromNames(countries), [countries]);
+  const visitedN = new Set([...(cfg.visited ?? []), ...derived]).size + [...countries].filter((n) => codesFromNames([n]).size === 0).length;
   const photos = posts.reduce((n, p) => n + (p.photoCount || 0), 0);
   const heroes = useMemo(() => [{ k: "site", src: siteHero, cap: cfg.heroCaption || "나의 여행 서랍에서" },
     ...posts.filter((p) => p.cover).slice(0, 3).map((p) => ({ k: "post:" + p.id, src: p.cover!, cap: `${tripMonth(p).slice(0, 4)} · ${p.trip.country} ${p.trip.city}` }))], [posts, siteHero, cfg.heroCaption]);
@@ -215,8 +221,27 @@ function Overview({ user, saveCities, posts, cfg, siteHero, total, name, priv, s
     apps: <AppsW />,
     memo: <MemoW memo={priv.memo} setMemo={(memo) => setPriv({ memo })} />,
     vouchers: <VoucherWidget user={user} onOpen={onVouchers} />,
+    visited: <VisitedW visited={cfg.visited ?? []} derived={derived} setVisited={(visited) => setCfg({ visited })} saved={savedVisited} save={saveVisited} />,
   };
   const on = cfg.widgets.filter((w) => W[w]);
+
+  /* ── 위젯 편집 모드: 끌어서 순서 바꾸기 · 크기 · 숨김 ── */
+  const [edit, setEdit] = useState(false);
+  const [dragW, setDragW] = useState<string | null>(null);
+  const [lmsg, setLmsg] = useState(""); const [lbusy, setLbusy] = useState(false);
+  const lastMove = useRef(0);
+  const hidden = DASH_WIDGETS.filter((w) => W[w] && !cfg.widgets.includes(w));
+  const moveTo = (w: string, t: string) => { const ws = cfg.widgets; const n = ws.filter((x) => x !== w); n.splice(ws.indexOf(t), 0, w); setCfg({ widgets: n }); setLmsg(""); };
+  const shift = (w: string, d: number) => { const ws = cfg.widgets, i = ws.indexOf(w), j = i + d; if (j < 0 || j >= ws.length) return; moveTo(w, ws[j]); };
+  const setSize = (w: string, z: "s" | "m" | "l" | "") => { const sz = { ...(cfg.sizes ?? {}) }; if (z) sz[w] = z; else delete sz[w]; setCfg({ sizes: sz }); setLmsg(""); };
+  const dragMove = (e: React.PointerEvent, w: string) => {
+    if (dragW !== w) return;
+    if (e.clientY < 90) window.scrollBy(0, -14); else if (e.clientY > window.innerHeight - 90) window.scrollBy(0, 14);
+    if (Date.now() - lastMove.current < 110) return;
+    const t = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest<HTMLElement>("[data-w]")?.dataset.w;
+    if (t && t !== w && cfg.widgets.includes(t)) { lastMove.current = Date.now(); moveTo(w, t); }
+  };
+  const saveLayout = async () => { setLbusy(true); setLmsg(await savePart({ widgets: cfg.widgets, sizes: cfg.sizes ?? {} })); setLbusy(false); };
 
   return (
     <main className="pg">
@@ -227,7 +252,7 @@ function Overview({ user, saveCities, posts, cfg, siteHero, total, name, priv, s
           {next ? <p className="lead">다음 여행 <b>{next.name}</b>까지 <b>{Math.max(0, days(ymd(now), next.start))}일</b> 남았어요.</p>
             : <p className="lead">오늘도 한 장면씩, 서랍에 담아 둘까요?</p>}
         </div>
-        <button className="xbtn line" onClick={onWidgets}><Icon n="widgets" size={17} />위젯 편집</button>
+        <button className={"xbtn " + (edit ? "xpri" : "line")} onClick={() => setEdit((v) => !v)} aria-pressed={edit}><Icon n={edit ? "check" : "widgets"} size={17} />{edit ? "편집 끝내기" : "위젯 편집"}</button>
       </div>
 
       <section className="xhero">
@@ -251,14 +276,38 @@ function Overview({ user, saveCities, posts, cfg, siteHero, total, name, priv, s
 
       <section className="stats">
         <Stat icon="book" v={posts.length} u="편" l="여행기" />
-        <Stat icon="globe" v={countries.size} u="곳" l="다녀온 나라" />
+        <Stat icon="globe" v={visitedN} u="곳" l="다녀온 나라" />
         <Stat icon="camera" v={photos.toLocaleString()} u="장" l="담아 둔 사진" />
         <Stat icon="move" v={Math.round((posts.length / total) * 1000) / 10} u="%" l="네이버 이전" />
       </section>
 
-      {on.length > 0 && <section className="grid">{on.map((w) => (
-        <article key={w} className={"xcard w-" + w}>
+      {edit && (
+        <section className="ebar" aria-label="위젯 편집">
+          <p><b>카드 위쪽 <Icon n="grip" size={14} /> 를 끌어서</b> 순서를 바꾸고, 크기를 고르거나 숨길 수 있어요. 키보드는 방향키로 옮겨요.</p>
+          {hidden.length > 0 && <div className="eadd"><span>숨긴 위젯</span>{hidden.map((w) => <button key={w} onClick={() => setCfg({ widgets: [...cfg.widgets, w] })}><Icon n="plus" size={14} />{WNAME[w]}</button>)}</div>}
+          <div className="erow">
+            <p className="hint" aria-live="polite">{lmsg || "바꾼 모습은 이 기기에 먼저 보여요. 저장하면 폰·PC 모두에 적용돼요."}</p>
+            <button className="xbtn xpri xsm" onClick={saveLayout} disabled={lbusy}><Icon n="check" size={15} />{lbusy ? "저장 중…" : "모든 기기에 저장"}</button>
+          </div>
+        </section>
+      )}
+      {on.length > 0 && <section className={"grid" + (edit ? " editing" : "")}>{on.map((w) => (
+        <article key={w} data-w={w} data-s={cfg.sizes?.[w] ?? undefined} className={"xcard w-" + w + (dragW === w ? " dragging" : "")}>
           <header className="ch"><span className="ci"><Icon n={WICON[w]} size={18} /></span><h3>{WNAME[w]}</h3></header>
+          {edit && (
+            <div className="ectl">
+              <button className="egrip" aria-label={`${WNAME[w]} 옮기기 (방향키 또는 끌기)`} onContextMenu={(e) => e.preventDefault()}
+                onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); setDragW(w); }}
+                onPointerMove={(e) => dragMove(e, w)} onPointerUp={() => setDragW(null)} onPointerCancel={() => setDragW(null)}
+                onKeyDown={(e) => { const d = e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : 0; if (d) { e.preventDefault(); shift(w, d); } }}>
+                <Icon n="grip" size={16} /><span>끌어서 이동</span>
+              </button>
+              <span className="eseg" role="group" aria-label="크기">
+                {([["s", "작게"], ["m", "중간"], ["l", "크게"]] as const).map(([z, l]) => <button key={z} aria-pressed={cfg.sizes?.[w] === z} onClick={() => setSize(w, cfg.sizes?.[w] === z ? "" : z)}>{l}</button>)}
+              </span>
+              <button className="ehide" onClick={() => setCfg({ widgets: cfg.widgets.filter((x) => x !== w) })} aria-label={`${WNAME[w]} 숨기기`}><Icon n="eyeoff" size={16} /></button>
+            </div>
+          )}
           {W[w]}
         </article>
       ))}</section>}
@@ -648,7 +697,7 @@ function Dialog({ cfg, setCfg, dark, toggleDark, posts, siteHero, tab: t0, close
         <footer>
           <p className="hint">{msg || (changed ? "바꾼 설정은 이 기기에 먼저 보입니다. 저장해야 다른 기기에도 적용됩니다." : "모든 기기에 같은 설정이 적용되어 있습니다.")}</p>
           <div className="xrow">
-            <button className="xbtn line" onClick={() => setCfg({ ...DASH_DEFAULT, v: cfg.v })}>기본값</button>
+            <button className="xbtn line" onClick={() => setCfg({ ...DASH_DEFAULT, v: cfg.v, cities: cfg.cities, visited: cfg.visited })}>기본값</button>
             <button className="xbtn xpri" disabled={busy || !changed} onClick={saveAll}><Icon n="check" size={16} />{busy ? "저장 중…" : "모든 기기에 저장"}</button>
           </div>
         </footer>

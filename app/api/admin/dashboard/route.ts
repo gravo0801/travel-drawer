@@ -23,6 +23,8 @@ export async function POST(req: Request) {
     widgets: Array.isArray(b.widgets) ? [...new Set(b.widgets.filter((w) => wid.has(w)))] : DASH_DEFAULT.widgets,
     hero: /^(site|post:[\w-]+)$/.test(b.hero ?? "") ? b.hero! : "site",
     heroCaption: String(b.heroCaption ?? "").replace(/[\r\n]+/g, " ").slice(0, 60),
+    sizes: Object.fromEntries(Object.entries(b.sizes && typeof b.sizes === "object" ? b.sizes : {}).filter(([k, v]) => wid.has(k) && (v === "s" || v === "m" || v === "l"))) as DashCfg["sizes"],
+    visited: [...new Set((Array.isArray(b.visited) ? b.visited : []).map((c) => String(c).toUpperCase()).filter((c) => /^[A-Z]{2}$/.test(c)))].slice(0, 260).sort(),
     cities: (Array.isArray(b.cities) ? b.cities : []).slice(0, 12)
       .filter((c) => c && Number.isFinite(c.lat) && Number.isFinite(c.lon) && Math.abs(c.lat) <= 90 && Math.abs(c.lon) <= 180)
       .map((c) => ({ n: String(c.n ?? "").slice(0, 40), c: String(c.c ?? "").slice(0, 60), lat: +(+c.lat).toFixed(3), lon: +(+c.lon).toFixed(3), on: !!c.on })),

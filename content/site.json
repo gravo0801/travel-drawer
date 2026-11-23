@@ -28,6 +28,7 @@
    "gc",
    "vouchers",
    "trips",
+   "visited",
    "migrate",
    "timeline",
    "apps",
