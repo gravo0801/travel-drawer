@@ -25,6 +25,7 @@
   "widgets": [
    "wx",
    "mt",
+   "endo",
    "gc",
    "vouchers",
    "trips",

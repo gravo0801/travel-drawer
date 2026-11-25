@@ -9,6 +9,7 @@ import { codesFromNames } from "@/lib/visitedCodes";
 import Icon from "./Icon";
 import WeatherW from "./Weather";
 import VisitedW from "./VisitedMap";
+import EndoW from "./EndoW";
 import { useRefreshPulse } from "./useRefreshPulse";
 import { VoucherWidget, VoucherManager } from "./VoucherLedger";
 import "./dash.css";
@@ -35,8 +36,8 @@ const APPS = [
   { n: "EndoApp", sub: "내시경 업무", icon: "scope", hue: "violet", url: "https://gravo0801.github.io/endoapp/" },
   { n: "Google 캘린더", sub: "일정", icon: "calendar", hue: "amber", url: "https://calendar.google.com/" },
 ];
-const WNAME: Record<string, string> = { wx: "날씨", mt: "마통 잔액", gc: "오늘 일정", trips: "다음 여행", migrate: "블로그 이전", timeline: "여행 연표", apps: "나의 앱", memo: "메모", vouchers: "카드 혜택", visited: "다녀온 곳" };
-const WICON: Record<string, string> = { wx: "sun", mt: "chart", gc: "calendar", trips: "plane", migrate: "move", timeline: "globe", apps: "widgets", memo: "note", vouchers: "note", visited: "map" };
+const WNAME: Record<string, string> = { wx: "날씨", mt: "마통 잔액", gc: "오늘 일정", trips: "다음 여행", migrate: "블로그 이전", timeline: "여행 연표", apps: "나의 앱", memo: "메모", vouchers: "카드 혜택", visited: "다녀온 곳", endo: "내시경 현황" };
+const WICON: Record<string, string> = { wx: "sun", mt: "chart", gc: "calendar", trips: "plane", migrate: "move", timeline: "globe", apps: "widgets", memo: "note", vouchers: "note", visited: "map", endo: "scope" };
 
 const fam = (id: string) => (FONTS.find((f) => f.id === id) ?? FONTS[0]).family;
 const kst = () => new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
@@ -214,6 +215,7 @@ function Overview({ user, saveCities, saveVisited, savePart, savedVisited, posts
   const W: Record<string, React.ReactNode> = {
     wx: <WeatherW cities={cfg.cities ?? []} saveCities={saveCities} />,
     mt: <MtW user={user} />,
+    endo: <EndoW user={user} />,
     gc: <GcW user={user} />,
     trips: <TripsW trips={priv.trips} setTrips={(trips) => setPriv({ trips })} />,
     migrate: <MigrateW done={posts.length} total={total} />,

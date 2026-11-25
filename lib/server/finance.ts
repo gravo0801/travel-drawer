@@ -1,10 +1,10 @@
 /** 마통 앱(gravo-finance)의 Firestore 문서에서 우리은행 마이너스통장 잔액만 읽어 옵니다. (서버 전용) */
 const PROJECT = "endoapp-cc066";
 const COLL = "gravo_finance_v2";
-const DEFAULT_KEY = "AIzaSyAN7s01gb9AsmeMVdgWGY6pllX9cm1SLJ0"; // 마통 앱에 이미 공개된 웹 키 (비밀 아님)
+export const DEFAULT_KEY = "AIzaSyAN7s01gb9AsmeMVdgWGY6pllX9cm1SLJ0"; // 마통 앱에 이미 공개된 웹 키 (비밀 아님)
 
 type FV = { [k: string]: unknown };
-function dec(v: FV | undefined): unknown {
+export function dec(v: FV | undefined): unknown {
   if (!v) return null;
   if ("stringValue" in v) return v.stringValue;
   if ("integerValue" in v) return Number(v.integerValue);
