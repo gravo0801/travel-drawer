@@ -53,7 +53,7 @@ export type DashCfg = {
   visited: string[];
 };
 export type WxCity = { n: string; c: string; lat: number; lon: number; on: boolean };
-export const DASH_WIDGETS = ["wx", "mt", "gc", "vouchers", "trips", "migrate", "timeline", "apps", "memo", "visited"] as const;
+export const DASH_WIDGETS = ["wx", "mt", "endo", "gc", "vouchers", "trips", "migrate", "timeline", "apps", "memo", "visited"] as const;
 export const DASH_DEFAULT: DashCfg = {
   v: "", palette: "sage", accent: "", titleFont: "nserif", bodyFont: "pre", size: "m",
   widgets: [...DASH_WIDGETS], hero: "site", heroCaption: "", cities: [], sizes: {}, visited: [],
